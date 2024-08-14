@@ -3,15 +3,14 @@ package waitlist
 import (
 	"context"
 
-	"yakubu-llc/waitlist/pkg/entities/waitlist"
-	"yakubu-llc/waitlist/pkg/storage/postgres/shared"
+	"waitq/api/pkg/entities/waitlist"
+	"waitq/api/pkg/storage/postgres/shared"
 
 	"github.com/google/uuid"
 )
 
 func (s *WaitlistService) AddEmails(ctx context.Context, emails []waitlist.Email) ([]waitlist.Email, error) {
-	
-	
+
 	return s.waitlistRepository.AddEmails(ctx, emails)
 }
 

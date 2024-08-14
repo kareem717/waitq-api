@@ -11,12 +11,13 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
+	httpServer "waitq/api/pkg/server/http"
+	"waitq/api/pkg/service/domain"
+	"waitq/api/pkg/storage/postgres"
+
 	_ "github.com/danielgtaylor/huma/v2/formats/cbor"
 	"github.com/gorilla/securecookie"
 	supabase "github.com/supabase-community/supabase-go"
-	httpServer "yakubu-llc/waitlist/pkg/server/http"
-	"yakubu-llc/waitlist/pkg/service/domain"
-	"yakubu-llc/waitlist/pkg/storage/postgres"
 )
 
 type Options struct {

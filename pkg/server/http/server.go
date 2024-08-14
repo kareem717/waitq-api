@@ -2,12 +2,12 @@ package http
 
 import (
 	"net/http"
-	"yakubu-llc/waitlist/pkg/service"
+	"waitq/api/pkg/service"
 )
 
 type Server struct {
-	services *service.Service
-	apiName  string
+	services   *service.Service
+	apiName    string
 	apiVersion string
 }
 

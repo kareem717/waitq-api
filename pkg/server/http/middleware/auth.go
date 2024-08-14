@@ -3,10 +3,10 @@ package middleware
 import (
 	"net/http"
 	"strings"
-	"yakubu-llc/waitlist/pkg/server/http/handler/shared"
-	postgres "yakubu-llc/waitlist/pkg/storage/postgres/shared"
+	"waitq/api/pkg/server/http/handler/shared"
+	postgres "waitq/api/pkg/storage/postgres/shared"
 
-	"yakubu-llc/waitlist/pkg/service"
+	"waitq/api/pkg/service"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"

@@ -5,10 +5,10 @@ import (
 	"database/sql"
 	"errors"
 
-	"yakubu-llc/waitlist/pkg/entities/account"
-	helper "yakubu-llc/waitlist/pkg/server/http/handler/shared"
-	"yakubu-llc/waitlist/pkg/service"
-	"yakubu-llc/waitlist/pkg/storage/postgres/shared"
+	"waitq/api/pkg/entities/account"
+	helper "waitq/api/pkg/server/http/handler/shared"
+	"waitq/api/pkg/service"
+	"waitq/api/pkg/storage/postgres/shared"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"

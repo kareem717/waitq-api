@@ -2,10 +2,10 @@
 include .env.local
 
 build:
-	@go build -tags dev -o bin/yakubu-llc/waitlist cmd/app/main.go  
+	@go build -tags dev -o bin/waitq/api cmd/app/main.go  
 
 run: build
-	@./bin/yakubu-llc/waitlist
+	@./bin/waitq/api
 
 install:
 	@go get ./...

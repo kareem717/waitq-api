@@ -3,8 +3,9 @@ package shared
 import (
 	"context"
 
+	"waitq/api/pkg/entities/account"
+
 	"github.com/supabase-community/gotrue-go/types"
-	"yakubu-llc/waitlist/pkg/entities/account"
 )
 
 const (

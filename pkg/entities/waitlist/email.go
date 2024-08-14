@@ -1,16 +1,17 @@
 package waitlist
 
 import (
-	"yakubu-llc/waitlist/pkg/entities/shared"
+	"waitq/api/pkg/entities/shared"
+
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
-	"time"
 )
 
 type Email struct {
-	bun.BaseModel  `bun:"table:waitlist_emails"`
-	
+	bun.BaseModel `bun:"table:waitlist_emails"`
+
 	ID             uuid.UUID  `json:"id"`
 	WaitlistID     uuid.UUID  `json:"waitlistId"`
 	Email          string     `json:"email"`

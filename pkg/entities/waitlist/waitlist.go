@@ -1,7 +1,7 @@
 package waitlist
 
 import (
-	"yakubu-llc/waitlist/pkg/entities/shared"
+	"waitq/api/pkg/entities/shared"
 
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"

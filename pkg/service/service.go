@@ -3,13 +3,14 @@ package service
 import (
 	"context"
 	"errors"
+	"waitq/api/pkg/entities/account"
+	"waitq/api/pkg/entities/waitlist"
+	"waitq/api/pkg/storage/postgres/shared"
+
 	"github.com/google/uuid"
 	"github.com/gorilla/securecookie"
 	"github.com/supabase-community/supabase-go"
 	"go.uber.org/zap"
-	"yakubu-llc/waitlist/pkg/entities/account"
-	"yakubu-llc/waitlist/pkg/entities/waitlist"
-	"yakubu-llc/waitlist/pkg/storage/postgres/shared"
 )
 
 var (

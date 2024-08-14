@@ -1,4 +1,4 @@
-module yakubu-llc/waitlist
+module waitq/api
 
 go 1.22.4
 

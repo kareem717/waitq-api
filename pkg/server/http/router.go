@@ -1,8 +1,8 @@
 package http
 
 import (
-	"yakubu-llc/waitlist/pkg/server/http/handler/account"
-	"yakubu-llc/waitlist/pkg/server/http/handler/waitlist"
+	"waitq/api/pkg/server/http/handler/account"
+	"waitq/api/pkg/server/http/handler/waitlist"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"

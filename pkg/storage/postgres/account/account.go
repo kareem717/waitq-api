@@ -2,10 +2,11 @@ package account
 
 import (
 	"context"
+	"waitq/api/pkg/entities/account"
+	"waitq/api/pkg/storage/postgres/shared"
+
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
-	"yakubu-llc/waitlist/pkg/entities/account"
-	"yakubu-llc/waitlist/pkg/storage/postgres/shared"
 )
 
 type AccountRepository struct {

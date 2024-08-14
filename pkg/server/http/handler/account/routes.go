@@ -2,9 +2,9 @@ package account
 
 import (
 	"net/http"
-	"yakubu-llc/waitlist/pkg/service"
+	"waitq/api/pkg/service"
 
-	"yakubu-llc/waitlist/pkg/server/http/middleware"
+	"waitq/api/pkg/server/http/middleware"
 
 	"github.com/danielgtaylor/huma/v2"
 )

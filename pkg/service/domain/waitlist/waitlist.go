@@ -3,11 +3,12 @@ package waitlist
 import (
 	"context"
 
+	"waitq/api/pkg/entities/waitlist"
+	"waitq/api/pkg/storage"
+	"waitq/api/pkg/storage/postgres/shared"
+
 	"github.com/google/uuid"
 	"github.com/supabase-community/supabase-go"
-	"yakubu-llc/waitlist/pkg/entities/waitlist"
-	"yakubu-llc/waitlist/pkg/storage"
-	"yakubu-llc/waitlist/pkg/storage/postgres/shared"
 )
 
 type WaitlistService struct {

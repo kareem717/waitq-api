@@ -2,9 +2,9 @@ package storage
 
 import (
 	"context"
-	"yakubu-llc/waitlist/pkg/entities/account"
-	"yakubu-llc/waitlist/pkg/entities/waitlist"
-	"yakubu-llc/waitlist/pkg/storage/postgres/shared"
+	"waitq/api/pkg/entities/account"
+	"waitq/api/pkg/entities/waitlist"
+	"waitq/api/pkg/storage/postgres/shared"
 
 	"github.com/google/uuid"
 )

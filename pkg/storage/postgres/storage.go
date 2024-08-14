@@ -6,10 +6,10 @@ import (
 	"log"
 	"time"
 
-	"yakubu-llc/waitlist/pkg/storage"
-	"yakubu-llc/waitlist/pkg/storage/postgres/account"
-	"yakubu-llc/waitlist/pkg/storage/postgres/waitlist"
-	
+	"waitq/api/pkg/storage"
+	"waitq/api/pkg/storage/postgres/account"
+	"waitq/api/pkg/storage/postgres/waitlist"
+
 	"github.com/alexlast/bunzap"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
@@ -101,7 +101,7 @@ func NewRepository(config Config, ctx context.Context, logger *zap.Logger) *stor
 
 	log.Println("Successfully connected to the database.")
 	return &storage.Repository{
-		Account: account.NewAccountRepository(db, ctx),
+		Account:  account.NewAccountRepository(db, ctx),
 		Waitlist: waitlist.NewWaitlistRepository(db, ctx),
 	}
 }
