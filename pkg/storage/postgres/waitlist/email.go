@@ -6,7 +6,6 @@ import (
 	"waitq/api/pkg/storage/postgres/shared"
 
 	"github.com/google/uuid"
-	"github.com/uptrace/bun"
 )
 
 func (r *WaitlistRepository) AddEmails(ctx context.Context, emails []waitlist.Email) ([]waitlist.Email, error) {
@@ -20,7 +19,8 @@ func (r *WaitlistRepository) AddEmails(ctx context.Context, emails []waitlist.Em
 			ExcludeColumn("created_at").
 			ExcludeColumn("updated_at").
 			ExcludeColumn("deleted_at").
-			ExcludeColumn("unsubscribed_at").
+			ExcludeColumn("parsed_email").
+   			ExcludeColumn("unsubscribed_at").
 			Returning("*").
 			Scan(ctx, &resp)
 
@@ -58,24 +58,29 @@ func (r *WaitlistRepository) DeleteEmail(ctx context.Context, waitlistId uuid.UU
 	return err
 }
 
-func (r *WaitlistRepository) GetEmailsByWaitlistID(ctx context.Context, waitlistId uuid.UUID, input shared.PaginationRequest) ([]waitlist.Email, error) {
+func (r *WaitlistRepository) GetEmailsByWaitlistID(ctx context.Context, waitlistId uuid.UUID, input shared.EmailPaginationRequest) ([]waitlist.Email, error) {
 	resp := []waitlist.Email{}
 
-	err := r.db.NewSelect().
+	query := r.db.NewSelect().
 		Model(&resp).
-		WhereGroup(" AND ", func(q *bun.SelectQuery) *bun.SelectQuery {
-			query := q.Where("waitlist_id = ?", waitlistId)
-			if !input.IncludeDeleted {
-				query = query.Where("deleted_at IS NULL")
-			}
-			return query
-		}).
-		OrderExpr("created_at DESC").
-		Limit(input.PageSize).
-		Offset((input.Page - 1) * input.PageSize).
-		Scan(ctx)
+		Where("waitlist_id = ?", waitlistId).
+		OrderExpr("created_at DESC")
 
-	return resp, err
+	if input.PageSize > 0 && input.Page > 0 {
+		query = query.
+			Limit(input.PageSize).
+			Offset((input.Page - 1) * input.PageSize)
+	}
+
+	if !input.IncludeDeleted {
+		query = query.Where("deleted_at IS NULL")
+	}
+
+	if !input.IncludeUnsubscribed {
+		query = query.Where("unsubscribed_at IS NULL")
+	}
+
+	return resp, query.Scan(ctx)
 }
 
 func (r *WaitlistRepository) GetEmailsByWaitlistIDAndEmail(ctx context.Context, waitlistId uuid.UUID, email string) (waitlist.Email, error) {
@@ -104,4 +109,22 @@ func (r *WaitlistRepository) UnsubscribeEmail(ctx context.Context, waitlistId uu
 			Scan(ctx, &resp)
 
 	return resp, err
+}
+
+func (r *WaitlistRepository) GetEmailCountByWaitlistID(ctx context.Context, waitlistId uuid.UUID, includeDeleted bool, includeUnsubscribed bool) (int, error) {
+	query :=
+		r.db.
+			NewSelect().
+			Model(&waitlist.Email{}).
+			Where("waitlist_id = ?", waitlistId)
+
+	if !includeDeleted {
+		query = query.Where("deleted_at IS NULL")
+	}
+
+	if !includeUnsubscribed {
+		query = query.Where("unsubscribed_at IS NULL")
+	}
+
+	return query.Count(ctx)
 }

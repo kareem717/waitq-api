@@ -10,9 +10,12 @@ import (
 type Waitlist struct {
 	bun.BaseModel `bun:"table:waitlists"`
 
-	ID        uuid.UUID `json:"id"`
-	AccountID uuid.UUID `json:"accountId"`
-	Name      string    `json:"name"`
+	ID         uuid.UUID `json:"id"`
+	AccountID  uuid.UUID `json:"accountId"`
+	Name       string    `json:"name"`
+	JWTSecret  string    `json:"jwtSecret"`
+	AnonKey    string    `json:"anonKey"`
+	ServiceKey string    `json:"serviceKey"`
 	shared.Timestamps
 }
 

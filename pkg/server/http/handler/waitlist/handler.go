@@ -1,9 +1,13 @@
 package waitlist
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/csv"
 	"errors"
+	"fmt"
+	"time"
 
 	"waitq/api/pkg/entities/waitlist"
 	helper "waitq/api/pkg/server/http/handler/shared"
@@ -11,6 +15,7 @@ import (
 	"waitq/api/pkg/storage/postgres/shared"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
@@ -193,12 +198,62 @@ func (h *httpHandler) update(ctx context.Context, input *UpdateWaitlistInput) (*
 	})
 
 	if err != nil {
-		h.logger.Error("failed to update account", zap.Error(err))
-		return nil, huma.Error500InternalServerError("An error occurred while updating the account")
+		h.logger.Error("failed to update waitlist", zap.Error(err))
+		return nil, huma.Error500InternalServerError("An error occurred while updating the waitlist")
 	}
 
 	resp := &UpdateWaitlistOutput{}
 	resp.Body.Message = "Waitlist updated successfully"
+	resp.Body.Waitlist = &waitlist
+
+	return resp, nil
+}
+
+type UpdateWaitlistJWTSecretInput struct {
+	ID   uuid.UUID `path:"id" minLength:"36" maxLength:"36" format:"uuid"`
+	Body struct {
+		UpdateWaitlistJWTSecretFields struct {
+			JWTSecret string `json:"jwtSecret" minLength:"32" maxLength:"512" required:"false"`
+		} `json:"waitlist"`
+	}
+}
+
+type UpdateWaitlistJWTSecretOutput struct {
+	Body struct {
+		Message  string             `json:"message"`
+		Waitlist *waitlist.Waitlist `json:"waitlist"`
+	}
+}
+
+func (h *httpHandler) updateJWTSecret(ctx context.Context, input *UpdateWaitlistJWTSecretInput) (*UpdateWaitlistJWTSecretOutput, error) {
+	waitlistRecord, err := h.waitlistService.GetById(ctx, input.ID)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, huma.Error404NotFound("Waitlist not found")
+		default:
+			h.logger.Error("failed to fetch waitlist", zap.Error(err))
+			return nil, huma.Error500InternalServerError("An error occurred while fetching the waitlist")
+		}
+	}
+
+	if waitlistRecord.DeletedAt != nil {
+		return nil, huma.Error404NotFound("Waitlist not found")
+	}
+
+	if ctxAccount := helper.GetAuthenticatedAccount(ctx); ctxAccount.ID != waitlistRecord.AccountID {
+		h.logger.Error("unauthorized access", zap.Any("account", ctxAccount), zap.Any("waitlist", waitlistRecord))
+		return nil, huma.Error403Forbidden("Cannot update waitlist for another account")
+	}
+
+	waitlist, err := h.waitlistService.UpdateJWTSecret(ctx, input.ID, input.Body.UpdateWaitlistJWTSecretFields.JWTSecret)
+	if err != nil {
+		h.logger.Error("failed to update waitlist jwt secret", zap.Error(err))
+		return nil, huma.Error500InternalServerError("An error occurred while updating the waitlist jwt secret")
+	}
+
+	resp := &UpdateWaitlistJWTSecretOutput{}
+	resp.Body.Message = "Waitlist JWT secret updated successfully"
 	resp.Body.Waitlist = &waitlist
 
 	return resp, nil
@@ -247,7 +302,7 @@ func (h *httpHandler) delete(ctx context.Context, input *DeleteWaitlistInput) (*
 type AddEmailsInput struct {
 	ID   uuid.UUID `path:"id" minLength:"36" maxLength:"36" format:"uuid"`
 	Body struct {
-		Emails []string `json:"emails"`
+		Emails []string `json:"emails" minLength:"3" maxLength:"320" format:"email"`
 	}
 }
 
@@ -260,6 +315,11 @@ type AddEmailsOutput struct {
 }
 
 func (h *httpHandler) addEmails(ctx context.Context, input *AddEmailsInput) (*AddEmailsOutput, error) {
+
+	if len(input.Body.Emails) == 0 {
+		return nil, huma.Error400BadRequest("No emails provided")
+	}
+
 	waitlistResp, err := h.waitlistService.GetById(ctx, input.ID)
 	if err != nil {
 		switch {
@@ -271,9 +331,13 @@ func (h *httpHandler) addEmails(ctx context.Context, input *AddEmailsInput) (*Ad
 		}
 	}
 
-	if ctxAccount := helper.GetAuthenticatedAccount(ctx); ctxAccount.ID != waitlistResp.AccountID {
-		h.logger.Error("unauthorized access", zap.Any("account", ctxAccount), zap.Any("waitlist", waitlistResp))
-		return nil, huma.Error403Forbidden("Cannot add emails to waitlist for another account")
+	//TODO: this doesn't work beacuase of no middleware
+	// Anon users can only add one email at a time
+	if len(input.Body.Emails) > 1 {
+		if ctxAccount := helper.GetAuthenticatedAccount(ctx); ctxAccount.ID != waitlistResp.AccountID {
+			h.logger.Error("unauthorized access", zap.Any("account", ctxAccount), zap.Any("waitlist", waitlistResp))
+			return nil, huma.Error403Forbidden("Bearer token is required to add multiple emails")
+		}
 	}
 
 	newEmails := make([]waitlist.Email, len(input.Body.Emails))
@@ -301,7 +365,7 @@ func (h *httpHandler) addEmails(ctx context.Context, input *AddEmailsInput) (*Ad
 
 type DeleteEmailInput struct {
 	ID    uuid.UUID `path:"id" minLength:"36" maxLength:"36" format:"uuid"`
-	Email string    `query:"email" minLength:"3" maxLength:"360" format:"email"`
+	Email string    `query:"email" minLength:"3" maxLength:"320" format:"email"`
 }
 
 type DeleteEmailsOutput struct {
@@ -389,7 +453,7 @@ func (h *httpHandler) updateEmail(ctx context.Context, input *UpdateEmailInput) 
 type GetEmailsByWaitlistIDInput struct {
 	ID   uuid.UUID `path:"id" minLength:"36" maxLength:"36" format:"uuid"`
 	Body struct {
-		PaginationParams shared.PaginationRequest `json:"paginationParams"`
+		PaginationParams shared.EmailPaginationRequest `json:"paginationParams"`
 	}
 }
 
@@ -435,7 +499,7 @@ func (h *httpHandler) getEmailsByWaitlistID(ctx context.Context, input *GetEmail
 type UnsubscribeEmailInput struct {
 	ID   uuid.UUID `path:"id" minLength:"36" maxLength:"36" format:"uuid"`
 	Body struct {
-		Email string `json:"email"`
+		EncodedEmail string `json:"encodedEmail"`
 	}
 }
 
@@ -458,7 +522,33 @@ func (h *httpHandler) unsubscribeEmail(ctx context.Context, input *UnsubscribeEm
 		}
 	}
 
-	email, err := h.waitlistService.GetEmailsByWaitlistIDAndEmail(ctx, waitlistResp.ID, input.Body.Email)
+	token, err := jwt.Parse(input.Body.EncodedEmail, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			h.logger.Error("unexpected signing method", zap.Any("token", token.Header["alg"]))
+			return nil, huma.Error400BadRequest("Invalid encoded email")
+		}
+
+		return []byte(waitlistResp.JWTSecret), nil
+	})
+	if err != nil {
+		h.logger.Error("failed to parse token", zap.Error(err))
+		return nil, huma.Error500InternalServerError("An error occurred while parsing the encoded email")
+	}
+
+	var inputEmail, waitlistID string
+	if claims, ok := token.Claims.(jwt.MapClaims); ok {
+		inputEmail = claims["email"].(string)
+		waitlistID = claims["ref"].(string)
+	} else {
+		h.logger.Error("failed to parse token", zap.Error(err))
+		return nil, huma.Error500InternalServerError("An error occurred while parsing the encoded email")
+	}
+
+	if waitlistID != input.ID.String() {
+		return nil, huma.Error400BadRequest("Invalid waitlist ID")
+	}
+
+	email, err := h.waitlistService.GetEmailsByWaitlistIDAndEmail(ctx, waitlistResp.ID, inputEmail)
 	if err != nil {
 		h.logger.Error("failed to fetch email", zap.Error(err))
 		return nil, huma.Error500InternalServerError("An error occurred while fetching the email")
@@ -476,7 +566,7 @@ func (h *httpHandler) unsubscribeEmail(ctx context.Context, input *UnsubscribeEm
 		return nil, huma.Error400BadRequest("Email has already been unsubscribed")
 	}
 
-	emailResp, err := h.waitlistService.UnsubscribeEmail(ctx, waitlistResp.ID, input.Body.Email)
+	emailResp, err := h.waitlistService.UnsubscribeEmail(ctx, waitlistResp.ID, inputEmail)
 	if err != nil {
 		h.logger.Error("failed to unsubscribe email from waitlist", zap.Error(err))
 		return nil, huma.Error500InternalServerError("An error occurred while unsubscribing email from the waitlist")
@@ -485,6 +575,60 @@ func (h *httpHandler) unsubscribeEmail(ctx context.Context, input *UnsubscribeEm
 	resp := &UnsubscribeEmailOutput{}
 	resp.Body.Message = "Email unsubscribed from waitlist successfully"
 	resp.Body.Email = emailResp
+
+	return resp, nil
+}
+
+type GetUnsubscribedEmailJWTInput struct {
+	ID    uuid.UUID `path:"id" minLength:"36" maxLength:"36" format:"uuid"`
+	Email string    `query:"email" minLength:"3" maxLength:"320" format:"email"`
+}
+
+type GetUnsubscribedEmailJWTOutput struct {
+	Body struct {
+		Message string `json:"message"`
+		Encoded string `json:"encoded"`
+	}
+}
+
+func (h *httpHandler) getUnsubscribedEmailJWT(ctx context.Context, input *GetUnsubscribedEmailJWTInput) (*GetUnsubscribedEmailJWTOutput, error) {
+	waitlistResp, err := h.waitlistService.GetById(ctx, input.ID)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, huma.Error404NotFound("Waitlist not found")
+		default:
+			h.logger.Error("failed to fetch waitlist", zap.Error(err))
+			return nil, huma.Error500InternalServerError("An error occurred while fetching the waitlist")
+		}
+	}
+
+	if ctxAccount := helper.GetAuthenticatedAccount(ctx); ctxAccount.ID != waitlistResp.AccountID {
+		h.logger.Error("unauthorized access", zap.Any("account", ctxAccount), zap.Any("waitlist", waitlistResp))
+		return nil, huma.Error403Forbidden("Cannot get unsubscribed email JWT for another account")
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"iss":   "waitq",
+		"ref":   input.ID.String(),
+		"email": input.Email,
+		"exp":   time.Now().Add(time.Hour * 24 * 365 * 10).Unix(),
+		"iat":   time.Now().Unix(),
+	})
+
+	// Ensure the secret is a byte slice for HMAC
+	hmacSecret := []byte(waitlistResp.JWTSecret)
+
+	// Sign and get the complete encoded token as a string using the HMAC secret
+	encoded, err := token.SignedString(hmacSecret)
+	if err != nil {
+		h.logger.Error("failed to sign token", zap.Error(err))
+		return nil, huma.Error500InternalServerError("An error occurred while signing the token")
+	}
+
+	resp := &GetUnsubscribedEmailJWTOutput{}
+	resp.Body.Message = "Unsubscribed email JWT created successfully"
+	resp.Body.Encoded = encoded
 
 	return resp, nil
 }
@@ -529,4 +673,57 @@ func (h *httpHandler) getWaitlistAnalytics(ctx context.Context, input *GetWaitli
 
 	return resp, nil
 
+}
+
+type ExportEmailsToCSVInput struct {
+	ID uuid.UUID `path:"id" minLength:"36" maxLength:"36" format:"uuid"`
+}
+
+type ExportEmailsToCSVOutput struct {
+	ContentType        string `header:"Content-Type"`
+	ContentDisposition string `header:"Content-Disposition"`
+	Body               []byte
+}
+
+func (h *httpHandler) exportEmailsToCSV(ctx context.Context, input *ExportEmailsToCSVInput) (*ExportEmailsToCSVOutput, error) {
+	waitlistResp, err := h.waitlistService.GetById(ctx, input.ID)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, huma.Error404NotFound("Waitlist not found")
+		default:
+			h.logger.Error("failed to fetch waitlist", zap.Error(err))
+			return nil, huma.Error500InternalServerError("An error occurred while fetching the waitlist")
+		}
+	}
+
+	if ctxAccount := helper.GetAuthenticatedAccount(ctx); ctxAccount.ID != waitlistResp.AccountID {
+		h.logger.Error("unauthorized access", zap.Any("account", ctxAccount), zap.Any("waitlist", waitlistResp))
+		return nil, huma.Error403Forbidden("Cannot export emails to CSV for another account")
+	}
+
+	emailsChan, errChan := h.waitlistService.ExportEmails(ctx, input.ID)
+
+	var buffer bytes.Buffer
+	writer := csv.NewWriter(&buffer)
+
+	for email := range emailsChan {
+		if err := writer.Write([]string{email}); err != nil {
+			h.logger.Error("failed to write email to CSV", zap.Error(err))
+			return nil, huma.Error500InternalServerError("An error occurred while writing emails to CSV")
+		}
+		writer.Flush()
+	}
+
+	if err := <-errChan; err != nil {
+		h.logger.Error("failed to export emails", zap.Error(err))
+		return nil, huma.Error500InternalServerError("An error occurred while exporting emails")
+	}
+
+	resp := &ExportEmailsToCSVOutput{}
+	resp.ContentType = "text/csv"
+	resp.ContentDisposition = fmt.Sprintf("attachment; filename=%s.csv", waitlistResp.Name)
+	resp.Body = buffer.Bytes()
+
+	return resp, nil
 }

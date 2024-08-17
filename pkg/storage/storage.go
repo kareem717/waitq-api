@@ -26,10 +26,11 @@ type WaitlistRepository interface {
 	AddEmails(ctx context.Context, emails []waitlist.Email) ([]waitlist.Email, error)
 	DeleteEmail(ctx context.Context, waitlistId uuid.UUID, email string) error
 	UpdateEmail(ctx context.Context, input waitlist.Email) (waitlist.Email, error)
-	GetEmailsByWaitlistID(ctx context.Context, waitlistId uuid.UUID, input shared.PaginationRequest) ([]waitlist.Email, error)
+	GetEmailsByWaitlistID(ctx context.Context, waitlistId uuid.UUID, input shared.EmailPaginationRequest) ([]waitlist.Email, error)
 	UnsubscribeEmail(ctx context.Context, waitlistId uuid.UUID, email string) (waitlist.Email, error)
 	GetEmailsByWaitlistIDAndEmail(ctx context.Context, waitlistId uuid.UUID, email string) (waitlist.Email, error)
 	GetAnalytics(ctx context.Context, waitlistId uuid.UUID) (waitlist.WaitlistAnalytics, error)
+	GetEmailCountByWaitlistID(ctx context.Context, waitlistId uuid.UUID, includeDeleted bool, includeUnsubscribed bool) (int, error)
 }
 
 type Repository struct {

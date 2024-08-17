@@ -6,6 +6,7 @@ require (
 	github.com/alexlast/bunzap v0.1.0
 	github.com/danielgtaylor/huma/v2 v2.20.0
 	github.com/go-chi/chi/v5 v5.1.0
+	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/jackc/pgx/v5 v5.6.0
 	github.com/supabase-community/gotrue-go v1.2.0
 	github.com/uptrace/bun v1.2.1

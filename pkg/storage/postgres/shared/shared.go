@@ -5,7 +5,7 @@ import (
 )
 
 func ExcludeInsertColumns(query *bun.InsertQuery) *bun.InsertQuery {
-	query.ExcludeColumn("created_at", "updated_at", "deleted_at", "id")
+	query.ExcludeColumn("created_at", "updated_at", "deleted_at")
 	return query
 }
 
@@ -21,6 +21,13 @@ type GetManyRequest struct {
 type PaginationRequest struct {
 	Page     int `json:"page" default:"1" min:"1" required:"false"`
 	PageSize int `json:"pageSize" default:"10" min:"1" max:"100" required:"false"`
+	GetManyRequest
+}
+
+type EmailPaginationRequest struct {
+	Page                int  `json:"page" default:"1" min:"1" required:"false"`
+	PageSize            int  `json:"pageSize" default:"10" min:"1" max:"100" required:"false"`
+	IncludeUnsubscribed bool `json:"includeUnsubscribed" default:"false" required:"false"`
 	GetManyRequest
 }
 

@@ -29,15 +29,17 @@ type WaitlistService interface {
 	Create(ctx context.Context, input waitlist.Waitlist) (waitlist.Waitlist, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 	Update(ctx context.Context, id uuid.UUID, input waitlist.Waitlist) (waitlist.Waitlist, error)
+	UpdateJWTSecret(ctx context.Context, id uuid.UUID, secret string) (waitlist.Waitlist, error)
 	GetByAccountId(ctx context.Context, accountId uuid.UUID, input shared.PaginationRequest) ([]waitlist.Waitlist, error)
 	GetById(ctx context.Context, id uuid.UUID) (waitlist.Waitlist, error)
 	GetAnalytics(ctx context.Context, waitlistId uuid.UUID) (waitlist.WaitlistAnalytics, error)
 	AddEmails(ctx context.Context, emails []waitlist.Email) ([]waitlist.Email, error)
 	DeleteEmail(ctx context.Context, waitlistId uuid.UUID, email string) error
 	UpdateEmail(ctx context.Context, input waitlist.Email) (waitlist.Email, error)
-	GetEmailsByWaitlistID(ctx context.Context, waitlistId uuid.UUID, input shared.PaginationRequest) ([]waitlist.Email, error)
+	GetEmailsByWaitlistID(ctx context.Context, waitlistId uuid.UUID, input shared.EmailPaginationRequest) ([]waitlist.Email, error)
 	UnsubscribeEmail(ctx context.Context, waitlistId uuid.UUID, email string) (waitlist.Email, error)
 	GetEmailsByWaitlistIDAndEmail(ctx context.Context, waitlistId uuid.UUID, email string) (waitlist.Email, error)
+	ExportEmails(ctx context.Context, waitlistId uuid.UUID) (chan string, chan error)
 }
 
 // Service storage of all services.
