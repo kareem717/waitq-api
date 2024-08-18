@@ -8,15 +8,15 @@ import (
 
 	"github.com/danielgtaylor/huma/v2/humacli"
 	"github.com/joho/godotenv"
+	"github.com/resend/resend-go/v2"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	httpServer "waitq/api/pkg/server/http"
-	"waitq/api/pkg/service/domain"
-	"waitq/api/pkg/storage/postgres"
+	httpServer "waitq/api/internal/server/http"
+	"waitq/api/internal/service/domain"
+	"waitq/api/internal/storage/postgres"
+	"waitq/api/pkg/mailer"
 
-	_ "github.com/danielgtaylor/huma/v2/formats/cbor"
-	"github.com/gorilla/securecookie"
 	supabase "github.com/supabase-community/supabase-go"
 )
 
@@ -29,6 +29,7 @@ type Options struct {
 	CookieBlockKey     string `help:"Cookie Block Key" short:"b"`
 	ApiName            string `help:"API Name" short:"n"`
 	ApiVersion         string `help:"API Version" short:"v"`
+	ResendAPIKey       string `help:"Resend API Key" short:"r"`
 }
 
 func (o *Options) config() {
@@ -44,6 +45,7 @@ func (o *Options) config() {
 	o.CookieBlockKey = os.Getenv("COOKIE_BLOCK_KEY")
 	o.ApiName = os.Getenv("API_NAME")
 	o.ApiVersion = os.Getenv("API_VERSION")
+	o.ResendAPIKey = os.Getenv("RESEND_API_KEY")
 }
 
 func main() {
@@ -67,11 +69,12 @@ func main() {
 			logger.Fatal("Failed to create Supabase client", zap.Error(err))
 		}
 
-		cookieStore := securecookie.New([]byte(options.CookieHashKey), []byte(options.CookieBlockKey))
+		resendClient := resend.NewClient(options.ResendAPIKey)
+		mailer := mailer.NewMailer(resendClient)
 
 		postgresConfig := postgres.NewConfig(options.DatabaseURL)
 		repositories := postgres.NewRepository(postgresConfig, ctx, logger)
-		services := domain.NewService(repositories, logger, sb, cookieStore)
+		services := domain.NewService(repositories, logger, sb, mailer)
 
 		server := httpServer.NewServer(services, options.ApiName, options.ApiVersion)
 

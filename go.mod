@@ -8,6 +8,7 @@ require (
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/jackc/pgx/v5 v5.6.0
+	github.com/resend/resend-go/v2 v2.11.0
 	github.com/supabase-community/gotrue-go v1.2.0
 	github.com/uptrace/bun v1.2.1
 	github.com/uptrace/bun/dialect/pgdialect v1.2.1
@@ -35,12 +36,9 @@ require (
 )
 
 require (
-	github.com/fxamacker/cbor/v2 v2.6.0 // indirect
 	github.com/google/uuid v1.6.0
-	github.com/gorilla/securecookie v1.1.2
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/joho/godotenv v1.5.1
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/supabase-community/supabase-go v0.0.4
-	github.com/x448/float16 v0.8.4 // indirect
 )
