@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"waitq/api/internal/entities/account"
+	"waitq/api/internal/entities/subscription"
 	"waitq/api/internal/entities/waitlist"
 	"waitq/api/internal/storage/postgres/shared"
 
 	"github.com/google/uuid"
+	"github.com/stripe/stripe-go/v79"
 	"github.com/supabase-community/supabase-go"
 	"go.uber.org/zap"
 )
@@ -41,10 +43,16 @@ type WaitlistService interface {
 	ExportEmails(ctx context.Context, waitlistId uuid.UUID) (chan string, chan error)
 }
 
+type SubscriptionService interface {
+	CreateStripeCheckoutSession(ctx context.Context, priceId string, accountId uuid.UUID) (*stripe.CheckoutSession, error)
+	HandleStripeCheckoutSuccess(ctx context.Context, sessionId string) (subscription.AccountSubscription, error)
+}
+
 // Service storage of all services.
 type Service struct {
-	AccountService  AccountService
-	WaitlistService WaitlistService
-	Logger          *zap.Logger
-	SupabaseClient  *supabase.Client
+	AccountService      AccountService
+	WaitlistService     WaitlistService
+	SubscriptionService SubscriptionService
+	Logger              *zap.Logger
+	SupabaseClient      *supabase.Client
 }

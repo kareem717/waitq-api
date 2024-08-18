@@ -21,7 +21,7 @@ func NewTokenRepository(db bun.IDB, ctx context.Context) *TokenRepository {
 	}
 }
 
-func (r *TokenRepository) Create(ctx context.Context) (token.Token, error) {
+func (r *TokenRepository) CreateRandom(ctx context.Context) (token.Token, error) {
 	resp := token.Token{}
 
 	resp.ExpiresAt = time.Now().Add(time.Minute * 15)

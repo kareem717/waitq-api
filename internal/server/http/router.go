@@ -2,6 +2,7 @@ package http
 
 import (
 	"waitq/api/internal/server/http/handler/account"
+	"waitq/api/internal/server/http/handler/subscription"
 	"waitq/api/internal/server/http/handler/waitlist"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -31,6 +32,11 @@ func (s *Server) routes() chi.Router {
 	)
 
 	waitlist.RegisterHumaRoutes(
+		s.services,
+		humaApi,
+	)
+
+	subscription.RegisterHumaRoutes(
 		s.services,
 		humaApi,
 	)

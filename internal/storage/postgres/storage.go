@@ -9,6 +9,8 @@ import (
 	"waitq/api/internal/storage"
 	"waitq/api/internal/storage/postgres/account"
 	"waitq/api/internal/storage/postgres/waitlist"
+	"waitq/api/internal/storage/postgres/subscription"
+	"waitq/api/internal/storage/postgres/token"
 
 	"github.com/alexlast/bunzap"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -101,8 +103,10 @@ func NewRepository(config Config, ctx context.Context, logger *zap.Logger) *stor
 
 	log.Println("Successfully connected to the database.")
 	return &storage.Repository{
-		Account:  account.NewAccountRepository(db, ctx),
-		Waitlist: waitlist.NewWaitlistRepository(db, ctx),
+		Account:      account.NewAccountRepository(db, ctx),
+		Waitlist:     waitlist.NewWaitlistRepository(db, ctx),
+		Subscription: subscription.NewSubscriptionRepository(db, ctx),
+		Token:        token.NewTokenRepository(db,ctx),
 	}
 }
 

@@ -2,8 +2,9 @@ package storage
 
 import (
 	"context"
-	"go/token"
 	"waitq/api/internal/entities/account"
+	"waitq/api/internal/entities/subscription"
+	"waitq/api/internal/entities/token"
 	"waitq/api/internal/entities/waitlist"
 	"waitq/api/internal/storage/postgres/shared"
 
@@ -35,11 +36,19 @@ type WaitlistRepository interface {
 }
 
 type TokenRepository interface {
-	Create(ctx context.Context, input token.Token) (token.Token, error)
+	CreateRandom(ctx context.Context) (token.Token, error)
 	GetByToken(ctx context.Context, token int) (token.Token, error)
 }
 
+type SubscriptionRepository interface {
+	UpdateAccountSubscription(ctx context.Context, sub subscription.AccountSubscription) (subscription.AccountSubscription, error)
+	GetByAccountId(ctx context.Context, accountId uuid.UUID) (subscription.Subscription, error)
+	GetByStripeProductId(ctx context.Context, stripeProductId string) (subscription.Subscription, error)
+}
+
 type Repository struct {
-	Account  AccountRepository
-	Waitlist WaitlistRepository
+	Account      AccountRepository
+	Waitlist     WaitlistRepository
+	Subscription SubscriptionRepository
+	Token        TokenRepository
 }

@@ -10,9 +10,8 @@ import (
 type Account struct {
 	bun.BaseModel `bun:"table:accounts"`
 
-	ID             uuid.UUID `json:"id"`
-	UserID         uuid.UUID `json:"userId"`
-	SubscriptionID uuid.UUID `json:"subscriptionId"`
-	Username       string    `json:"username"`
+	ID       uuid.UUID `json:"id"`
+	UserID   uuid.UUID `json:"userId"`
+	Username string    `json:"username"`
 	shared.Timestamps
 }
