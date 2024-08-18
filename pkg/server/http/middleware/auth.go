@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"net/http"
-	"strings"
 	"waitq/api/pkg/server/http/handler/shared"
 	postgres "waitq/api/pkg/storage/postgres/shared"
 
@@ -12,11 +11,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/supabase-community/supabase-go"
 	"go.uber.org/zap"
-)
-
-const (
-	UserContextKey    = "user"
-	AccountContextKey = "account"
 )
 
 func WithUser(api huma.API) func(ctx huma.Context, next func(huma.Context), sb *supabase.Client, logger *zap.Logger) {
@@ -29,12 +23,10 @@ func WithUser(api huma.API) func(ctx huma.Context, next func(huma.Context), sb *
 			return
 		}
 
-		var accessToken string
-		accessToken = strings.Replace(authHeader, "Bearer ", "", 1)
-		if accessToken == "" {
-			logger.Error("Error parsing access token", zap.String("authHeader", authHeader))
+		accessToken, err := parseBearerToken(authHeader)
+		if err != nil {
 			huma.WriteErr(api, ctx, http.StatusUnauthorized,
-				"An invalid access token was provided",
+				err.Error(),
 			)
 			return
 		}
@@ -50,8 +42,7 @@ func WithUser(api huma.API) func(ctx huma.Context, next func(huma.Context), sb *
 			return
 		}
 
-		logger.Info("User authenticated", zap.Any("user", resp.User.ID))
-		next(huma.WithValue(ctx, UserContextKey, resp.User))
+		next(huma.WithValue(ctx, shared.UserContextKey, resp.User))
 	}
 }
 
@@ -91,6 +82,6 @@ func WithAccount(api huma.API) func(ctx huma.Context, next func(huma.Context), a
 			return
 		}
 
-		next(huma.WithValue(ctx, AccountContextKey, queryResp[0]))
+		next(huma.WithValue(ctx, shared.AccountContextKey, queryResp[0]))
 	}
 }

@@ -33,7 +33,7 @@ type WaitlistService interface {
 	GetByAccountId(ctx context.Context, accountId uuid.UUID, input shared.PaginationRequest) ([]waitlist.Waitlist, error)
 	GetById(ctx context.Context, id uuid.UUID) (waitlist.Waitlist, error)
 	GetAnalytics(ctx context.Context, waitlistId uuid.UUID) (waitlist.WaitlistAnalytics, error)
-	AddEmails(ctx context.Context, emails []waitlist.Email) ([]waitlist.Email, error)
+	AddEmail(ctx context.Context, waitlistId uuid.UUID, email string) (waitlist.Email, error)
 	DeleteEmail(ctx context.Context, waitlistId uuid.UUID, email string) error
 	UpdateEmail(ctx context.Context, input waitlist.Email) (waitlist.Email, error)
 	GetEmailsByWaitlistID(ctx context.Context, waitlistId uuid.UUID, input shared.EmailPaginationRequest) ([]waitlist.Email, error)

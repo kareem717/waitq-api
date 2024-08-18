@@ -11,9 +11,13 @@ import (
 	"github.com/google/uuid"
 )
 
-func (s *WaitlistService) AddEmails(ctx context.Context, emails []waitlist.Email) ([]waitlist.Email, error) {
+func (s *WaitlistService) AddEmail(ctx context.Context, waitlistId uuid.UUID, email string) (waitlist.Email, error) {
+	emails, err := s.waitlistRepository.AddEmails(ctx, []waitlist.Email{{WaitlistID: waitlistId, Email: email}})
+	if err != nil {
+		return waitlist.Email{}, err
+	}
 
-	return s.waitlistRepository.AddEmails(ctx, emails)
+	return emails[0], nil
 }
 
 func (s *WaitlistService) GetEmailsByWaitlistID(ctx context.Context, waitlistId uuid.UUID, input shared.EmailPaginationRequest) ([]waitlist.Email, error) {

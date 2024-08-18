@@ -13,7 +13,6 @@ func RegisterHumaRoutes(
 	service *service.Service,
 	humaApi huma.API,
 ) {
-
 	handler := &httpHandler{
 		waitlistService: service.WaitlistService,
 		logger:          service.Logger,
@@ -31,13 +30,30 @@ func RegisterHumaRoutes(
 		},
 		Middlewares: huma.Middlewares{
 			func(ctx huma.Context, next func(huma.Context)) {
+				middleware.WithWaitlistServiceKey(humaApi)(ctx, next, service.Logger)
+			},
+		},
+	}, handler.getByID)
+
+	huma.Register(humaApi, huma.Operation{
+		OperationID: "get-waitlist-api-key-by-id",
+		Method:      http.MethodGet,
+		Path:        "/waitlists/{id}/api",
+		Summary:     "Get a waitlist API key by ID",
+		Description: "Get a waitlist API key by ID.",
+		Tags:        []string{"Waitlists"},
+		Security: []map[string][]string{
+			{"bearerAuth": {}},
+		},
+		Middlewares: huma.Middlewares{
+			func(ctx huma.Context, next func(huma.Context)) {
 				middleware.WithUser(humaApi)(ctx, next, service.SupabaseClient, service.Logger)
 			},
 			func(ctx huma.Context, next func(huma.Context)) {
 				middleware.WithAccount(humaApi)(ctx, next, service.AccountService, service.Logger)
 			},
 		},
-	}, handler.getByID)
+	}, handler.getApiKeys)
 
 	huma.Register(humaApi, huma.Operation{
 		OperationID: "get-waitlists-by-account-id",
@@ -91,10 +107,7 @@ func RegisterHumaRoutes(
 		},
 		Middlewares: huma.Middlewares{
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithUser(humaApi)(ctx, next, service.SupabaseClient, service.Logger)
-			},
-			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithAccount(humaApi)(ctx, next, service.AccountService, service.Logger)
+				middleware.WithWaitlistServiceKey(humaApi)(ctx, next, service.Logger)
 			},
 		},
 	}, handler.update)
@@ -111,10 +124,7 @@ func RegisterHumaRoutes(
 		},
 		Middlewares: huma.Middlewares{
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithUser(humaApi)(ctx, next, service.SupabaseClient, service.Logger)
-			},
-			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithAccount(humaApi)(ctx, next, service.AccountService, service.Logger)
+				middleware.WithWaitlistServiceKey(humaApi)(ctx, next, service.Logger)
 			},
 		},
 	}, handler.updateJWTSecret)
@@ -131,10 +141,7 @@ func RegisterHumaRoutes(
 		},
 		Middlewares: huma.Middlewares{
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithUser(humaApi)(ctx, next, service.SupabaseClient, service.Logger)
-			},
-			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithAccount(humaApi)(ctx, next, service.AccountService, service.Logger)
+				middleware.WithWaitlistServiceKey(humaApi)(ctx, next, service.Logger)
 			},
 		},
 	}, handler.delete)
@@ -172,10 +179,7 @@ func RegisterHumaRoutes(
 		},
 		Middlewares: huma.Middlewares{
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithUser(humaApi)(ctx, next, service.SupabaseClient, service.Logger)
-			},
-			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithAccount(humaApi)(ctx, next, service.AccountService, service.Logger)
+				middleware.WithWaitlistServiceKey(humaApi)(ctx, next, service.Logger)
 			},
 		},
 	}, handler.getUnsubscribedEmailJWT)
@@ -192,33 +196,10 @@ func RegisterHumaRoutes(
 		},
 		Middlewares: huma.Middlewares{
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithUser(humaApi)(ctx, next, service.SupabaseClient, service.Logger)
-			},
-			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithAccount(humaApi)(ctx, next, service.AccountService, service.Logger)
+				middleware.WithWaitlistServiceKey(humaApi)(ctx, next, service.Logger)
 			},
 		},
 	}, handler.deleteEmail)
-
-	huma.Register(humaApi, huma.Operation{
-		OperationID: "update-email-from-waitlist",
-		Method:      http.MethodPut,
-		Path:        "/waitlists/{id}/emails",
-		Summary:     "Update email from a waitlist",
-		Description: "Update email from a waitlist.",
-		Tags:        []string{"Waitlists"},
-		Security: []map[string][]string{
-			{"bearerAuth": {}},
-		},
-		Middlewares: huma.Middlewares{
-			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithUser(humaApi)(ctx, next, service.SupabaseClient, service.Logger)
-			},
-			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithAccount(humaApi)(ctx, next, service.AccountService, service.Logger)
-			},
-		},
-	}, handler.updateEmail)
 
 	huma.Register(humaApi, huma.Operation{
 		OperationID: "get-emails-in-waitlist",
@@ -232,10 +213,7 @@ func RegisterHumaRoutes(
 		},
 		Middlewares: huma.Middlewares{
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithUser(humaApi)(ctx, next, service.SupabaseClient, service.Logger)
-			},
-			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithAccount(humaApi)(ctx, next, service.AccountService, service.Logger)
+				middleware.WithWaitlistServiceKey(humaApi)(ctx, next, service.Logger)
 			},
 		},
 	}, handler.getEmailsByWaitlistID)
@@ -252,10 +230,7 @@ func RegisterHumaRoutes(
 		},
 		Middlewares: huma.Middlewares{
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithUser(humaApi)(ctx, next, service.SupabaseClient, service.Logger)
-			},
-			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithAccount(humaApi)(ctx, next, service.AccountService, service.Logger)
+				middleware.WithWaitlistServiceKey(humaApi)(ctx, next, service.Logger)
 			},
 		},
 	}, handler.getWaitlistAnalytics)
@@ -272,10 +247,7 @@ func RegisterHumaRoutes(
 		},
 		Middlewares: huma.Middlewares{
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithUser(humaApi)(ctx, next, service.SupabaseClient, service.Logger)
-			},
-			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithAccount(humaApi)(ctx, next, service.AccountService, service.Logger)
+				middleware.WithWaitlistServiceKey(humaApi)(ctx, next, service.Logger)
 			},
 		},
 	}, handler.exportEmailsToCSV)
