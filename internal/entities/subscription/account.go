@@ -10,9 +10,11 @@ import (
 type AccountSubscription struct {
 	bun.BaseModel `bun:"table:account_subscriptions"`
 
+	ID                   uuid.UUID `json:"id"`
 	AccountID            uuid.UUID `json:"accountId"`
 	SubscriptionID       uuid.UUID `json:"subscriptionId"`
 	StripeSubscriptionID string    `json:"stripeSubscriptionID"`
 	StripeCustomerID     string    `json:"stripeCustomerID"`
+	StripePriceID        string    `json:"stripePriceID"`
 	shared.Timestamps
 }

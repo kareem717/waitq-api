@@ -38,20 +38,14 @@ func WithWaitlistOwnerSubscription(api huma.API) func(ctx huma.Context, next fun
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				sv.Logger.Error("account subscription not found", zap.Error(err))
-				huma.WriteErr(api, ctx, http.StatusForbidden,
-					"Must have a subscription to access",
-				)
-				return
 			}
 			sv.Logger.Error("failed to get account subscription", zap.Error(err))
-			huma.WriteErr(api, ctx, http.StatusInternalServerError,
-				"Failed to get account subscription",
-			)
+			next(huma.WithValue(ctx, shared.WaitlistSubscriptionContextKey, nil))
 			return
 		}
 
 		log.Println("sub", sub)
 
-		next(huma.WithValue(ctx, shared.WaitlistSubscriptionContextKey, sub))
+		next(huma.WithValue(ctx, shared.WaitlistSubscriptionContextKey, &sub))
 	}
 }

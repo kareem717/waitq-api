@@ -20,23 +20,39 @@ func NewSubscriptionRepository(db bun.IDB, ctx context.Context) *SubscriptionRep
 	}
 }
 
-func (r *SubscriptionRepository) UpdateAccountSubscription(ctx context.Context, sub subscription.AccountSubscription) (subscription.AccountSubscription, error) {
+func (r *SubscriptionRepository) CreateAccountSubscription(ctx context.Context, sub subscription.AccountSubscription) (subscription.AccountSubscription, error) {
 	resp := subscription.AccountSubscription{}
 
 	err :=
 		r.db.
 			NewInsert().
 			Model(&sub).
-			ExcludeColumn("created_at", "updated_at", "deleted_at").
-			On("CONFLICT (account_id) DO UPDATE").
+			ExcludeColumn("created_at", "updated_at", "deleted_at", "id").
 			Set("subscription_id = ?", sub.SubscriptionID).
 			Set("stripe_customer_id = ?", sub.StripeCustomerID).
+			Set("stripe_price_id = ?", sub.StripePriceID).
 			Returning("*").
 			Scan(ctx, &resp)
 
 	return resp, err
 }
 
+func (r *SubscriptionRepository) UpdateAccountSubscription(ctx context.Context, accountId uuid.UUID, newSubscriptionId uuid.UUID, newPriceId string) (subscription.AccountSubscription, error) {
+	resp := subscription.AccountSubscription{}
+
+	err :=
+		r.db.
+			NewUpdate().
+			Model(&resp).
+			ExcludeColumn("created_at", "updated_at").
+			Set("subscription_id = ?", newSubscriptionId).
+			Set("stripe_price_id = ?", newPriceId).
+			Where("account_id = ?", accountId).
+			Returning("*").
+			Scan(ctx, &resp)
+
+	return resp, err
+}
 func (r *SubscriptionRepository) GetByAccountId(ctx context.Context, accountId uuid.UUID) (subscription.Subscription, error) {
 	resp := subscription.Subscription{}
 
@@ -46,6 +62,18 @@ func (r *SubscriptionRepository) GetByAccountId(ctx context.Context, accountId u
 		Join("JOIN account_subscriptions AS acc_sub").
 		JoinOn("acc_sub.subscription_id = subscription.id").
 		Where("acc_sub.account_id = ?", accountId).
+		Scan(ctx, &resp)
+
+	return resp, err
+}
+
+func (r *SubscriptionRepository) GetRelationshipByAccountId(ctx context.Context, accountId uuid.UUID) (subscription.AccountSubscription, error) {
+	resp := subscription.AccountSubscription{}
+
+	err := r.db.
+		NewSelect().
+		Model(&resp).
+		Where("account_id = ?", accountId).
 		Scan(ctx, &resp)
 
 	return resp, err
@@ -61,4 +89,15 @@ func (r *SubscriptionRepository) GetByStripeProductId(ctx context.Context, strip
 		Scan(ctx, &resp)
 
 	return resp, err
+}
+
+func (r *SubscriptionRepository) DeleteRelationship(ctx context.Context, accountId uuid.UUID) error {
+	_, err := r.db.
+		NewUpdate().
+		Model(&subscription.AccountSubscription{}).
+		Set("deleted_at = CLOCK_TIMESTAMP()").
+		Where("account_id = ?", accountId).
+		Exec(ctx)
+
+	return err
 }

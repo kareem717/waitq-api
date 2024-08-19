@@ -128,3 +128,5 @@ func (r *WaitlistRepository) GetEmailCountByWaitlistID(ctx context.Context, wait
 
 	return query.Count(ctx)
 }
+
+

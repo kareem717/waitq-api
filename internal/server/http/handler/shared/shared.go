@@ -53,10 +53,10 @@ func GetWaitlistKey(ctx context.Context) WaitlistKey {
 	return WaitlistKey{}
 }
 
-func GetWaitlistSubscription(ctx context.Context) subscription.Subscription {
-	if ctxValue, ok := ctx.Value(WaitlistSubscriptionContextKey).(subscription.Subscription); ok {
+func GetWaitlistSubscription(ctx context.Context) *subscription.Subscription {
+	if ctxValue, ok := ctx.Value(WaitlistSubscriptionContextKey).(*subscription.Subscription); ok {
 		return ctxValue
 	}
 
-	return subscription.Subscription{}
+	return nil
 }

@@ -108,6 +108,17 @@ func (h *httpHandler) create(ctx context.Context, input *CreateWaitlistInput) (*
 		return nil, huma.Error403Forbidden("Cannot create waitlist for another account")
 	}
 
+	activeWaitlistCount, err := h.waitlistService.GetActiveWaitlistCountByAccountId(ctx, input.Body.CreateWaitlistFields.AccountID)
+	if err != nil {
+		h.logger.Error("failed to fetch active waitlist count", zap.Error(err))
+		return nil, huma.Error500InternalServerError("An error occurred while fetching the active waitlist count")
+	}
+
+	sub := helper.GetWaitlistSubscription(ctx)
+	if (sub != nil && activeWaitlistCount >= sub.MaxWaitlists) || (sub == nil && activeWaitlistCount >= 1) {
+		return nil, huma.Error403Forbidden("You need to upgrade your account to create more waitlists")
+	}
+
 	waitlist, err := h.waitlistService.Create(ctx, waitlist.Waitlist{
 		Name:      input.Body.CreateWaitlistFields.Name,
 		AccountID: input.Body.CreateWaitlistFields.AccountID,
@@ -331,6 +342,16 @@ func (h *httpHandler) addEmails(ctx context.Context, input *AddEmailsInput) (*Ad
 
 	if waitlistResp.DeletedAt != nil {
 		return nil, huma.Error404NotFound("Waitlist not found")
+	}
+
+	activeEmails, err := h.waitlistService.GetActiveEmailCountByWaitlistId(ctx, waitlistResp.ID)
+	if err != nil {
+		h.logger.Error("failed to fetch emails", zap.Error(err))
+		return nil, huma.Error500InternalServerError("An error occurred while fetching the emails")
+	}
+
+	if sub := helper.GetWaitlistSubscription(ctx); sub == nil || sub.MaxPeoplePerWaitlist <= activeEmails {
+		return nil, huma.Error403Forbidden("You need to upgrade your account to add more emails to the waitlist")
 	}
 
 	email, err := h.waitlistService.AddEmail(ctx, waitlistResp.ID, input.Body.Email)
@@ -624,9 +645,8 @@ func (h *httpHandler) exportEmailsToCSV(ctx context.Context, input *IDPathParam)
 		return nil, huma.Error403Forbidden("Cannot export emails to CSV for another account")
 	}
 
-	if sub := helper.GetWaitlistSubscription(ctx); !h.subscriptionService.IsProProduct(sub.StripeProductID) &&
-		!h.subscriptionService.IsEntrepreneurProduct(sub.StripeProductID) {
-		return nil, huma.Error403Forbidden("You must be a Pro or Entrepreneur account to export emails to CSV")
+	if sub := helper.GetWaitlistSubscription(ctx); sub == nil || sub.PermissionTier < 2 {
+		return nil, huma.Error403Forbidden("You need to upgrade your account to export emails to CSV")
 	}
 
 	waitlistResp, err := h.waitlistService.GetById(ctx, input.ID)

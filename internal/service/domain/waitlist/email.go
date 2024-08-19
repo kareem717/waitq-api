@@ -79,3 +79,7 @@ func (s *WaitlistService) ExportEmails(ctx context.Context, waitlistId uuid.UUID
 
 	return emailsChan, errChan
 }
+
+func (s *WaitlistService) GetActiveEmailCountByWaitlistId(ctx context.Context, waitlistId uuid.UUID) (int, error) {
+	return s.waitlistRepository.GetEmailCountByWaitlistID(ctx, waitlistId, false, false)
+}

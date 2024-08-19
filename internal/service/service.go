@@ -41,14 +41,17 @@ type WaitlistService interface {
 	UnsubscribeEmail(ctx context.Context, waitlistId uuid.UUID, email string) (waitlist.Email, error)
 	GetEmailsByWaitlistIDAndEmail(ctx context.Context, waitlistId uuid.UUID, email string) (waitlist.Email, error)
 	ExportEmails(ctx context.Context, waitlistId uuid.UUID) (chan string, chan error)
+	GetActiveWaitlistCountByAccountId(ctx context.Context, accountId uuid.UUID) (int, error)
+	GetActiveEmailCountByWaitlistId(ctx context.Context, waitlistId uuid.UUID) (int, error)
 }
 
 type SubscriptionService interface {
-	CreateStripeCheckoutSession(ctx context.Context, priceId string, accountId uuid.UUID) (*stripe.CheckoutSession, error)
-	HandleStripeCheckoutSuccess(ctx context.Context, sessionId string) (subscription.AccountSubscription, error)
+	CreateStripeCheckoutSession(ctx context.Context, priceId string, accountId uuid.UUID, redirectUrl string) (*stripe.CheckoutSession, error)
+	HandleStripeCheckoutSuccess(ctx context.Context, sessionId string) (subscription.AccountSubscription, string, error)
 	GetAccountSubscription(ctx context.Context, accountId uuid.UUID) (subscription.Subscription, error)
-	IsProProduct(productID string) bool
-	IsEntrepreneurProduct(productID string) bool
+	GetAccountSubscriptionRelationship(ctx context.Context, accountId uuid.UUID) (subscription.AccountSubscription, error)
+	CancelAccountSubscription(ctx context.Context, accountId uuid.UUID) error
+	UpdateAccountSubscription(ctx context.Context, accountId uuid.UUID, newPriceID string) (subscription.AccountSubscription, error)
 }
 
 // Service storage of all services.

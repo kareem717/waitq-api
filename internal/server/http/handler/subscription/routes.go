@@ -47,4 +47,64 @@ func RegisterHumaRoutes(
 		Description: "Handle a subscription callback.",
 		Tags:        []string{"Subscriptions"},
 	}, handler.handleStripeSubscriptionCallback)
+
+	huma.Register(humaApi, huma.Operation{
+		OperationID: "get-account-subscription",
+		Method:      http.MethodGet,
+		Path:        "/subscriptions/account/{accountId}",
+		Summary:     "Get a subscription",
+		Description: "Get a subscription.",
+		Tags:        []string{"Subscriptions"},
+		Security: []map[string][]string{
+			{"bearerAuth": {}},
+		},
+		Middlewares: huma.Middlewares{
+			func(ctx huma.Context, next func(huma.Context)) {
+				middleware.WithUser(humaApi)(ctx, next, service)
+			},
+			func(ctx huma.Context, next func(huma.Context)) {
+				middleware.WithAccount(humaApi)(ctx, next, service)
+			},
+		},
+	}, handler.getAccountSubscription)
+
+	huma.Register(humaApi, huma.Operation{
+		OperationID: "cancel-account-subscription",
+		Method:      http.MethodDelete,
+		Path:        "/subscriptions/account/{accountId}",
+		Summary:     "Cancel a subscription",
+		Description: "Cancel a subscription.",
+		Tags:        []string{"Subscriptions"},
+		Security: []map[string][]string{
+			{"bearerAuth": {}},
+		},
+		Middlewares: huma.Middlewares{
+			func(ctx huma.Context, next func(huma.Context)) {
+				middleware.WithUser(humaApi)(ctx, next, service)
+			},
+			func(ctx huma.Context, next func(huma.Context)) {
+				middleware.WithAccount(humaApi)(ctx, next, service)
+			},
+		},
+	}, handler.cancelAccountSubscription)
+
+	huma.Register(humaApi, huma.Operation{
+		OperationID: "update-account-subscription",
+		Method:      http.MethodPut,
+		Path:        "/subscriptions/account/{accountId}",
+		Summary:     "Update a subscription",
+		Description: "Update a subscription.",
+		Tags:        []string{"Subscriptions"},
+		Security: []map[string][]string{
+			{"bearerAuth": {}},
+		},
+		Middlewares: huma.Middlewares{
+			func(ctx huma.Context, next func(huma.Context)) {
+				middleware.WithUser(humaApi)(ctx, next, service)
+			},
+			func(ctx huma.Context, next func(huma.Context)) {
+				middleware.WithAccount(humaApi)(ctx, next, service)
+			},
+		},
+	}, handler.updateAccountSubscription)
 }

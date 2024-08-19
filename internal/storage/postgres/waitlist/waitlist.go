@@ -111,3 +111,16 @@ func (r *WaitlistRepository) GetAnalytics(ctx context.Context, waitlistId uuid.U
 
 	return resp, err
 }
+
+func (r *WaitlistRepository) GetActiveWaitlistCountByAccountId(ctx context.Context, accountId uuid.UUID) (int, error) {
+	var count int
+
+	err := r.db.NewSelect().
+		Model(&waitlist.Waitlist{}).
+		ColumnExpr("COUNT(*)").
+		Where("account_id = ?", accountId).
+		Where("deleted_at IS NULL").
+		Scan(ctx, &count)
+
+	return count, err
+}

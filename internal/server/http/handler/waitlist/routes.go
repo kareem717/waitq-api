@@ -93,6 +93,9 @@ func RegisterHumaRoutes(
 			func(ctx huma.Context, next func(huma.Context)) {
 				middleware.WithAccount(humaApi)(ctx, next, service)
 			},
+			func(ctx huma.Context, next func(huma.Context)) {
+				middleware.WithWaitlistOwnerSubscription(humaApi)(ctx, next, service)
+			},
 		},
 	}, handler.create)
 
@@ -156,6 +159,11 @@ func RegisterHumaRoutes(
 		Tags:        []string{"Waitlists"},
 		Security: []map[string][]string{
 			{"bearerAuth": {}},
+		},
+		Middlewares: huma.Middlewares{
+			func(ctx huma.Context, next func(huma.Context)) {
+				middleware.WithWaitlistOwnerSubscription(humaApi)(ctx, next, service)
+			},
 		},
 	}, handler.addEmails)
 

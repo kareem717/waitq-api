@@ -1,10 +1,12 @@
 package stripe
 
 import (
+	"errors"
 	"net/url"
 
 	"github.com/stripe/stripe-go/v79"
 	"github.com/stripe/stripe-go/v79/checkout/session"
+	"github.com/stripe/stripe-go/v79/subscription"
 )
 
 type ClientConfig struct {
@@ -29,12 +31,13 @@ func NewClient(config ClientConfig) *Client {
 	return &Client{config: config}
 }
 
-func (c *Client) CreateCheckoutSession(priceID string, customerAccountId string) (*stripe.CheckoutSession, error) {
+func (c *Client) CreateCheckoutSession(priceID string, customerAccountId string, redirectUrl string) (*stripe.CheckoutSession, error) {
 	stripe.Key = c.config.StripeAPIKey
 	checkoutParams := &stripe.CheckoutSessionParams{
 		SuccessURL: stripe.String(c.config.BaseURL + c.config.SubscriptionCallbackPath + "?session_id={CHECKOUT_SESSION_ID}"),
 		Metadata: map[string]string{
 			"customer_account_id": customerAccountId,
+			"redirect_url":        redirectUrl,
 		},
 		LineItems: []*stripe.CheckoutSessionLineItemParams{
 			{
@@ -47,9 +50,10 @@ func (c *Client) CreateCheckoutSession(priceID string, customerAccountId string)
 
 	s, err := session.New(checkoutParams)
 	return s, err
+
 }
 
-func (c *Client) GetCheckoutSession(sessionID string) (*stripe.CheckoutSession, error) {
+func (c *Client) GetSession(sessionID string) (*stripe.CheckoutSession, error) {
 	stripe.Key = c.config.StripeAPIKey
 	sess, err := session.Get(sessionID, nil)
 	return sess, err
@@ -66,10 +70,50 @@ func (c *Client) GetSessionLineItemIter(sess *stripe.CheckoutSession) (*session.
 	return iter, nil
 }
 
-func (c *Client) IsProProduct(productID string) bool {
-	return productID == c.config.StripeProProductID
+func (c *Client) GetCustomerSubscriptions(customerID string) (*subscription.Iter, error) {
+	stripe.Key = c.config.StripeAPIKey
+
+	params := &stripe.SubscriptionListParams{Customer: stripe.String(customerID)}
+	result := subscription.List(params)
+
+	return result, nil
 }
 
-func (c *Client) IsEntrepreneurProduct(productID string) bool {
-	return productID == c.config.StripeEntrepreneurProductID
+func (c *Client) UpdateCustomerSubscription(subscriptionID string, newPriceID string) (*stripe.Subscription, error) {
+	stripe.Key = c.config.StripeAPIKey
+
+	// Retrieve the subscription
+	sub, err := subscription.Get(subscriptionID, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(sub.Items.Data) == 0 {
+		return nil, errors.New("no subscription items found")
+	}
+
+	// Use the subscription item ID
+	subscriptionItemID := sub.Items.Data[0].ID
+
+	params := &stripe.SubscriptionParams{
+		Items: []*stripe.SubscriptionItemsParams{
+			{
+				ID:    stripe.String(subscriptionItemID),
+				Price: stripe.String(newPriceID),
+			},
+		},
+	}
+	result, err := subscription.Update(subscriptionID, params)
+	return result, err
+}
+
+func (c *Client) CancelSubscription(subscriptionID string) (*stripe.Subscription, error) {
+	stripe.Key = c.config.StripeAPIKey
+
+	sub, err := subscription.Cancel(subscriptionID, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return sub, nil
 }

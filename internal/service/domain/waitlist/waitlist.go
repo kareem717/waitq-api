@@ -113,6 +113,10 @@ func (s *WaitlistService) UpdateJWTSecret(ctx context.Context, id uuid.UUID, sec
 	return s.waitlistRepository.Update(ctx, id, vals)
 }
 
+func (s *WaitlistService) GetActiveWaitlistCountByAccountId(ctx context.Context, accountId uuid.UUID) (int, error) {
+	return s.waitlistRepository.GetActiveWaitlistCountByAccountId(ctx, accountId)
+}
+
 func (s *WaitlistService) GetAnalytics(ctx context.Context, waitlistId uuid.UUID) (waitlist.WaitlistAnalytics, error) {
 	return s.waitlistRepository.GetAnalytics(ctx, waitlistId)
 }

@@ -5,12 +5,10 @@ CREATE EXTENSION pg_cron;
 CREATE TABLE
     verification_tokens (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
-        token BIGINT NOT NULL,
+        token BIGINT UNIQUE NOT NULL,
         created_at timestamptz NOT NULL DEFAULT CLOCK_TIMESTAMP(),
         expires_at timestamptz NOT NULL
     );
-
-CREATE UNIQUE INDEX verification_tokens_token_idx ON verification_tokens (token);
 
 SELECT
     cron.schedule (

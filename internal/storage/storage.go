@@ -33,6 +33,7 @@ type WaitlistRepository interface {
 	GetEmailsByWaitlistIDAndEmail(ctx context.Context, waitlistId uuid.UUID, email string) (waitlist.Email, error)
 	GetAnalytics(ctx context.Context, waitlistId uuid.UUID) (waitlist.WaitlistAnalytics, error)
 	GetEmailCountByWaitlistID(ctx context.Context, waitlistId uuid.UUID, includeDeleted bool, includeUnsubscribed bool) (int, error)
+	GetActiveWaitlistCountByAccountId(ctx context.Context, accountId uuid.UUID) (int, error)
 }
 
 type TokenRepository interface {
@@ -41,9 +42,12 @@ type TokenRepository interface {
 }
 
 type SubscriptionRepository interface {
-	UpdateAccountSubscription(ctx context.Context, sub subscription.AccountSubscription) (subscription.AccountSubscription, error)
+	CreateAccountSubscription(ctx context.Context, sub subscription.AccountSubscription) (subscription.AccountSubscription, error)
+	GetRelationshipByAccountId(ctx context.Context, accountId uuid.UUID) (subscription.AccountSubscription, error)
 	GetByAccountId(ctx context.Context, accountId uuid.UUID) (subscription.Subscription, error)
 	GetByStripeProductId(ctx context.Context, stripeProductId string) (subscription.Subscription, error)
+	DeleteRelationship(ctx context.Context, accountId uuid.UUID) error
+	UpdateAccountSubscription(ctx context.Context, accountId uuid.UUID, newSubscriptionId uuid.UUID, newPriceId string) (subscription.AccountSubscription, error)
 }
 
 type Repository struct {
