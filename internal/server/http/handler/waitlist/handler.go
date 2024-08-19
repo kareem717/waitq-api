@@ -114,8 +114,23 @@ func (h *httpHandler) create(ctx context.Context, input *CreateWaitlistInput) (*
 		return nil, huma.Error500InternalServerError("An error occurred while fetching the active waitlist count")
 	}
 
-	sub := helper.GetWaitlistSubscription(ctx)
-	if (sub != nil && activeWaitlistCount >= sub.MaxWaitlists) || (sub == nil && activeWaitlistCount >= 1) {
+	sub, err := h.subscriptionService.GetAccountSubscription(ctx, input.Body.CreateWaitlistFields.AccountID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) && activeWaitlistCount >= 1 {
+			h.logger.Error("attempted to create additonal waitlist without subscription", zap.Int("activeWaitlistCount", activeWaitlistCount), zap.Any("accountId", input.Body.CreateWaitlistFields.AccountID))
+			return nil, huma.Error403Forbidden("You need to upgrade your account to create more waitlists")
+		}
+		h.logger.Error("failed to fetch account subscription", zap.Error(err))
+		return nil, huma.Error500InternalServerError("An error occurred while fetching the account subscription")
+	}
+
+	if activeWaitlistCount >= sub.MaxWaitlists {
+		h.logger.Error(
+			"exceeded max waitlist limit on subscription",
+			zap.Int("activeWaitlistCount", activeWaitlistCount),
+			zap.Any("accountId", input.Body.CreateWaitlistFields.AccountID),
+			zap.Int("maxWaitlists", sub.MaxWaitlists),
+		)
 		return nil, huma.Error403Forbidden("You need to upgrade your account to create more waitlists")
 	}
 

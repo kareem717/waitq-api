@@ -48,6 +48,7 @@ func (r *SubscriptionRepository) UpdateAccountSubscription(ctx context.Context, 
 			Set("subscription_id = ?", newSubscriptionId).
 			Set("stripe_price_id = ?", newPriceId).
 			Where("account_id = ?", accountId).
+			Where("deleted_at IS NULL").
 			Returning("*").
 			Scan(ctx, &resp)
 
@@ -62,6 +63,7 @@ func (r *SubscriptionRepository) GetByAccountId(ctx context.Context, accountId u
 		Join("JOIN account_subscriptions AS acc_sub").
 		JoinOn("acc_sub.subscription_id = subscription.id").
 		Where("acc_sub.account_id = ?", accountId).
+		Where("acc_sub.deleted_at IS NULL").
 		Scan(ctx, &resp)
 
 	return resp, err
@@ -74,6 +76,7 @@ func (r *SubscriptionRepository) GetRelationshipByAccountId(ctx context.Context,
 		NewSelect().
 		Model(&resp).
 		Where("account_id = ?", accountId).
+		Where("deleted_at IS NULL").
 		Scan(ctx, &resp)
 
 	return resp, err
@@ -86,6 +89,7 @@ func (r *SubscriptionRepository) GetByStripeProductId(ctx context.Context, strip
 		NewSelect().
 		Model(&resp).
 		Where("stripe_product_id = ?", stripeProductId).
+		Where("deleted_at IS NULL").
 		Scan(ctx, &resp)
 
 	return resp, err

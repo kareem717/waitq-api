@@ -93,9 +93,6 @@ func RegisterHumaRoutes(
 			func(ctx huma.Context, next func(huma.Context)) {
 				middleware.WithAccount(humaApi)(ctx, next, service)
 			},
-			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithWaitlistOwnerSubscription(humaApi)(ctx, next, service)
-			},
 		},
 	}, handler.create)
 
