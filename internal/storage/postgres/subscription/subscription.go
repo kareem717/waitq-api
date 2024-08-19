@@ -42,12 +42,11 @@ func (r *SubscriptionRepository) GetByAccountId(ctx context.Context, accountId u
 
 	err := r.db.
 		NewSelect().
-		Model(&subscription.AccountSubscription{}).
-		ColumnExpr("s.*").
-		Join("subscription s").
-		JoinOn("s.id = account_subscription.subscription_id").
-		Where("account_subscription.account_id = ?", accountId).
-		Scan(ctx)
+		Model(&resp).
+		Join("JOIN account_subscriptions AS acc_sub").
+		JoinOn("acc_sub.subscription_id = subscription.id").
+		Where("acc_sub.account_id = ?", accountId).
+		Scan(ctx, &resp)
 
 	return resp, err
 }

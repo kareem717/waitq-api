@@ -4,50 +4,59 @@ import (
 	"context"
 
 	"waitq/api/internal/entities/account"
+	"waitq/api/internal/entities/subscription"
 
+	"github.com/google/uuid"
 	"github.com/supabase-community/gotrue-go/types"
 )
 
 const (
-	UserContextKey    = "user"
-	AccountContextKey = "account"
-
-	WaitlistServiceKeyContextKey = "waitlistServiceKey"
-	WaitlistAnonKeyContextKey    = "waitlistAnonKey"
+	UserContextKey                 = "user"
+	AccountContextKey              = "account"
+	WaitlistKeyContextKey          = "waitlistKey"
+	WaitlistSubscriptionContextKey = "waitlistSubscription"
 )
 
 func GetAuthenticatedUser(ctx context.Context) types.User {
-	ctxValue, ok := ctx.Value(UserContextKey).(types.User)
-	if !ok {
-		return types.User{}
+	if ctxValue, ok := ctx.Value(UserContextKey).(types.User); ok {
+		return ctxValue
 	}
 
-	return ctxValue
+	return types.User{}
 }
 
 func GetAuthenticatedAccount(ctx context.Context) account.Account {
-	ctxValue, ok := ctx.Value(AccountContextKey).(account.Account)
-	if !ok {
-		return account.Account{}
+	if ctxValue, ok := ctx.Value(AccountContextKey).(account.Account); ok {
+		return ctxValue
 	}
 
-	return ctxValue
+	return account.Account{}
 }
 
-func GetWaitlistAnonKey(ctx context.Context) string {
-	ctxValue, ok := ctx.Value(WaitlistAnonKeyContextKey).(string)
-	if !ok {
-		return ""
-	}
+type KeyRole string
 
-	return ctxValue
+const (
+	WaitlistServiceKey KeyRole = "service"
+	WaitlistAnonKey    KeyRole = "anon"
+)
+
+type WaitlistKey struct {
+	ID   uuid.UUID
+	Role KeyRole
 }
 
-func GetWaitlistServiceKey(ctx context.Context) string {
-	ctxValue, ok := ctx.Value(WaitlistServiceKeyContextKey).(string)
-	if !ok {
-		return ""
+func GetWaitlistKey(ctx context.Context) WaitlistKey {
+	if ctxValue, ok := ctx.Value(WaitlistKeyContextKey).(WaitlistKey); ok {
+		return ctxValue
 	}
 
-	return ctxValue
+	return WaitlistKey{}
+}
+
+func GetWaitlistSubscription(ctx context.Context) subscription.Subscription {
+	if ctxValue, ok := ctx.Value(WaitlistSubscriptionContextKey).(subscription.Subscription); ok {
+		return ctxValue
+	}
+
+	return subscription.Subscription{}
 }

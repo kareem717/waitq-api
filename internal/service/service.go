@@ -46,6 +46,9 @@ type WaitlistService interface {
 type SubscriptionService interface {
 	CreateStripeCheckoutSession(ctx context.Context, priceId string, accountId uuid.UUID) (*stripe.CheckoutSession, error)
 	HandleStripeCheckoutSuccess(ctx context.Context, sessionId string) (subscription.AccountSubscription, error)
+	GetAccountSubscription(ctx context.Context, accountId uuid.UUID) (subscription.Subscription, error)
+	IsProProduct(productID string) bool
+	IsEntrepreneurProduct(productID string) bool
 }
 
 // Service storage of all services.

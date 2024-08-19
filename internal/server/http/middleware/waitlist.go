@@ -5,21 +5,16 @@ import (
 	"net/http"
 	"strings"
 	"waitq/api/internal/server/http/handler/shared"
+	"waitq/api/internal/service"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
-type KeyRole string
-
-const (
-	WaitlistServiceKey KeyRole = "service"
-	WaitlistAnonKey    KeyRole = "anon"
-)
-
-func WithWaitlistServiceKey(api huma.API) func(ctx huma.Context, next func(huma.Context), logger *zap.Logger) {
-	return func(ctx huma.Context, next func(huma.Context), logger *zap.Logger) {
+func WithWaitlistServiceKey(api huma.API) func(ctx huma.Context, next func(huma.Context), sv *service.Service) {
+	return func(ctx huma.Context, next func(huma.Context), sv *service.Service) {
 		authHeader := ctx.Header("Authorization")
 		if authHeader == "" {
 			huma.WriteErr(api, ctx, http.StatusUnauthorized,
@@ -44,20 +39,29 @@ func WithWaitlistServiceKey(api huma.API) func(ctx huma.Context, next func(huma.
 			return
 		}
 
-		waitlistID, err := parseTokenClaims(token, WaitlistServiceKey, logger)
+		waitlistKey, err := parseTokenClaims(token, sv.Logger)
 		if err != nil {
 			huma.WriteErr(api, ctx, http.StatusUnauthorized,
 				err.Error(),
 			)
 			return
+
 		}
 
-		next(huma.WithValue(ctx, shared.WaitlistServiceKeyContextKey, waitlistID))
+		if waitlistKey.Role != shared.WaitlistServiceKey {
+			sv.Logger.Error("Invalid access token", zap.Any("waitlistKey", waitlistKey))
+			huma.WriteErr(api, ctx, http.StatusUnauthorized,
+				"An invalid access token was provided",
+			)
+			return
+		}
+
+		next(huma.WithValue(ctx, shared.WaitlistKeyContextKey, waitlistKey))
 	}
 }
 
-func WithWaitlistAnonKey(api huma.API) func(ctx huma.Context, next func(huma.Context), logger *zap.Logger) {
-	return func(ctx huma.Context, next func(huma.Context), logger *zap.Logger) {
+func WithWaitlistAnonKey(api huma.API) func(ctx huma.Context, next func(huma.Context), sv *service.Service) {
+	return func(ctx huma.Context, next func(huma.Context), sv *service.Service) {
 		authHeader := ctx.Header("Authorization")
 		if authHeader == "" {
 			huma.WriteErr(api, ctx, http.StatusUnauthorized,
@@ -82,7 +86,7 @@ func WithWaitlistAnonKey(api huma.API) func(ctx huma.Context, next func(huma.Con
 			return
 		}
 
-		waitlistID, err := parseTokenClaims(token, WaitlistAnonKey, logger)
+		waitlistKey, err := parseTokenClaims(token, sv.Logger)
 		if err != nil {
 			huma.WriteErr(api, ctx, http.StatusUnauthorized,
 				err.Error(),
@@ -90,37 +94,48 @@ func WithWaitlistAnonKey(api huma.API) func(ctx huma.Context, next func(huma.Con
 			return
 		}
 
-		next(huma.WithValue(ctx, shared.WaitlistAnonKeyContextKey, waitlistID))
+		if waitlistKey.Role != shared.WaitlistAnonKey {
+			sv.Logger.Error("Invalid access token", zap.Any("waitlistKey", waitlistKey))
+			huma.WriteErr(api, ctx, http.StatusUnauthorized,
+				"An invalid access token was provided",
+			)
+			return
+		}
+
+		next(huma.WithValue(ctx, shared.WaitlistKeyContextKey, waitlistKey))
 	}
 }
 
 // parseTokenClaims parses the JWT token and returns the waitlist ID
-func parseTokenClaims(token *jwt.Token, role KeyRole, logger *zap.Logger) (string, error) {
+func parseTokenClaims(token *jwt.Token, logger *zap.Logger) (shared.WaitlistKey, error) {
 	if claims, ok := token.Claims.(jwt.MapClaims); ok {
 		logger.Debug("claims", zap.Any("claims", claims))
 
 		waitlistID, ok := claims["ref"].(string)
 		if !ok {
 			logger.Error("waitlistID claim is missing or not a string", zap.Any("claims", claims))
-			return "", errors.New("Token does not contain a valid waitlist ID")
+			return shared.WaitlistKey{}, errors.New("Token does not contain a valid waitlist ID")
 		}
 
 		roleClaim, ok := claims["role"].(string)
 		if !ok {
 			logger.Error("role claim is missing or not a string", zap.Any("claims", claims))
-			return "", errors.New("Token does not contain a valid role")
+			return shared.WaitlistKey{}, errors.New("Token does not contain a valid role")
 		}
 
-		logger.Error("role claim", zap.Any("role", roleClaim), zap.Any("role", role))
-		if roleClaim != string(role) {
-			logger.Error("waitlist api key JWT does not have the correct role", zap.Any("token", token))
-			return "", errors.New("Token does not have the correct role")
+		parsedId, err := uuid.Parse(waitlistID)
+		if err != nil {
+			logger.Error("waitlistID claim is not a valid UUID", zap.Any("claims", claims))
+			return shared.WaitlistKey{}, errors.New("Token does not contain a valid waitlist ID")
 		}
 
-		return waitlistID, nil
+		return shared.WaitlistKey{
+			ID:   parsedId,
+			Role: shared.KeyRole(roleClaim),
+		}, nil
 	} else {
 		logger.Error("Error parsing waitlist service key JWT claims", zap.Any("token", token))
-		return "", errors.New("An invalid access token was provided")
+		return shared.WaitlistKey{}, errors.New("An invalid access token was provided")
 	}
 }
 

@@ -8,9 +8,11 @@ import (
 )
 
 type ClientConfig struct {
-	StripeAPIKey             string
-	BaseURL                  string
-	SubscriptionCallbackPath string
+	StripeAPIKey                string
+	BaseURL                     string
+	SubscriptionCallbackPath    string
+	StripeProProductID          string
+	StripeEntrepreneurProductID string
 }
 
 type Client struct {
@@ -60,6 +62,14 @@ func (c *Client) GetSessionLineItemIter(sess *stripe.CheckoutSession) (*session.
 	if !iter.Next() {
 		return nil, iter.Err()
 	}
-	
+
 	return iter, nil
+}
+
+func (c *Client) IsProProduct(productID string) bool {
+	return productID == c.config.StripeProProductID
+}
+
+func (c *Client) IsEntrepreneurProduct(productID string) bool {
+	return productID == c.config.StripeEntrepreneurProductID
 }

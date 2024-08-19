@@ -31,10 +31,10 @@ func RegisterHumaRoutes(
 		},
 		Middlewares: huma.Middlewares{
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithUser(humaApi)(ctx, next, service.SupabaseClient, service.Logger)
+				middleware.WithUser(humaApi)(ctx, next, service)
 			},
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithAccount(humaApi)(ctx, next, service.AccountService, service.Logger)
+				middleware.WithAccount(humaApi)(ctx, next, service)
 			},
 		},
 	}, handler.getStripeCheckoutLink)

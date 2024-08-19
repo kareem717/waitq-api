@@ -73,3 +73,15 @@ func (s *subscriptionService) HandleStripeCheckoutSuccess(ctx context.Context, s
 
 	return accSub, nil
 }
+
+func (s *subscriptionService) GetAccountSubscription(ctx context.Context, accountId uuid.UUID) (subscription.Subscription, error) {
+	return s.subscriptionRepository.GetByAccountId(ctx, accountId)
+}
+
+func (s *subscriptionService) IsProProduct(productID string) bool {
+	return s.stripeClient.IsProProduct(productID)
+}
+
+func (s *subscriptionService) IsEntrepreneurProduct(productID string) bool {
+	return s.stripeClient.IsEntrepreneurProduct(productID)
+}

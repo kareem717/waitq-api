@@ -21,14 +21,16 @@ import (
 )
 
 type httpHandler struct {
-	waitlistService service.WaitlistService
-	logger          *zap.Logger
+	waitlistService     service.WaitlistService
+	subscriptionService service.SubscriptionService
+	logger              *zap.Logger
 }
 
-func newHTTPHandler(waitlistService service.WaitlistService, logger *zap.Logger) *httpHandler {
+func newHTTPHandler(waitlistService service.WaitlistService, subscriptionService service.SubscriptionService, logger *zap.Logger) *httpHandler {
 	return &httpHandler{
-		waitlistService: waitlistService,
-		logger:          logger,
+		waitlistService:     waitlistService,
+		subscriptionService: subscriptionService,
+		logger:              logger,
 	}
 }
 
@@ -44,8 +46,8 @@ type WaitlistWithMessage struct {
 }
 
 func (h *httpHandler) getByID(ctx context.Context, input *IDPathParam) (*WaitlistWithMessage, error) {
-	if key := helper.GetWaitlistServiceKey(ctx); key != input.ID.String() {
-		h.logger.Error("unauthorized access", zap.Any("serviceKeyId", key), zap.Any("waitlistId", input.ID))
+	if key := helper.GetWaitlistKey(ctx); key.ID != input.ID {
+		h.logger.Error("unauthorized access", zap.Any("key", key), zap.Any("waitlistId", input.ID))
 		return nil, huma.Error403Forbidden("Cannot access waitlist")
 	}
 
@@ -182,8 +184,8 @@ type UpdateWaitlistInput struct {
 }
 
 func (h *httpHandler) update(ctx context.Context, input *UpdateWaitlistInput) (*WaitlistWithMessage, error) {
-	if key := helper.GetWaitlistServiceKey(ctx); key != input.ID.String() {
-		h.logger.Error("unauthorized access", zap.Any("serviceKeyId", key), zap.Any("waitlistId", input.ID))
+	if key := helper.GetWaitlistKey(ctx); key.ID != input.ID {
+		h.logger.Error("unauthorized access", zap.Any("key", key), zap.Any("waitlistId", input.ID))
 		return nil, huma.Error403Forbidden("Cannot update waitlist for another account")
 	}
 
@@ -228,8 +230,8 @@ type UpdateWaitlistJWTSecretInput struct {
 }
 
 func (h *httpHandler) updateJWTSecret(ctx context.Context, input *UpdateWaitlistJWTSecretInput) (*WaitlistWithMessage, error) {
-	if key := helper.GetWaitlistServiceKey(ctx); key != input.ID.String() {
-		h.logger.Error("unauthorized access", zap.Any("serviceKeyId", key), zap.Any("waitlistId", input.ID))
+	if key := helper.GetWaitlistKey(ctx); key.ID != input.ID {
+		h.logger.Error("unauthorized access", zap.Any("key", key), zap.Any("waitlistId", input.ID))
 		return nil, huma.Error403Forbidden("Cannot update waitlist for another account")
 	}
 
@@ -268,8 +270,8 @@ type MessageOutput struct {
 }
 
 func (h *httpHandler) delete(ctx context.Context, input *IDPathParam) (*MessageOutput, error) {
-	if key := helper.GetWaitlistServiceKey(ctx); key != input.ID.String() {
-		h.logger.Error("unauthorized access", zap.Any("serviceKeyId", key), zap.Any("waitlistId", input.ID))
+	if key := helper.GetWaitlistKey(ctx); key.ID != input.ID {
+		h.logger.Error("unauthorized access", zap.Any("key", key), zap.Any("waitlistId", input.ID))
 		return nil, huma.Error403Forbidden("Cannot delete waitlist for another account")
 	}
 
@@ -350,8 +352,8 @@ type DeleteEmailInput struct {
 }
 
 func (h *httpHandler) deleteEmail(ctx context.Context, input *DeleteEmailInput) (*MessageOutput, error) {
-	if serviceKey := helper.GetWaitlistServiceKey(ctx); serviceKey != input.ID.String() {
-		h.logger.Error("unauthorized access", zap.Any("serviceKeyID", serviceKey), zap.Any("waitlistID", input.ID))
+	if key := helper.GetWaitlistKey(ctx); key.ID != input.ID {
+		h.logger.Error("unauthorized access", zap.Any("key", key), zap.Any("waitlistID", input.ID))
 		return nil, huma.Error403Forbidden("Cannot delete email from waitlist for another account")
 	}
 
@@ -397,8 +399,8 @@ type GetEmailsByWaitlistIDOutput struct {
 }
 
 func (h *httpHandler) getEmailsByWaitlistID(ctx context.Context, input *GetEmailsByWaitlistIDInput) (*GetEmailsByWaitlistIDOutput, error) {
-	if serviceKeyId := helper.GetWaitlistServiceKey(ctx); serviceKeyId != input.ID.String() {
-		h.logger.Error("unauthorized access", zap.Any("serviceKeyID", serviceKeyId), zap.Any("waitlistID", input.ID))
+	if key := helper.GetWaitlistKey(ctx); key.ID != input.ID {
+		h.logger.Error("unauthorized access", zap.Any("key", key), zap.Any("waitlistID", input.ID))
 		return nil, huma.Error403Forbidden("Cannot add emails to waitlist for another account")
 	}
 
@@ -576,8 +578,8 @@ type GetWaitlistAnalyticsOutput struct {
 }
 
 func (h *httpHandler) getWaitlistAnalytics(ctx context.Context, input *IDPathParam) (*GetWaitlistAnalyticsOutput, error) {
-	if serviceKeyId := helper.GetWaitlistServiceKey(ctx); serviceKeyId != input.ID.String() {
-		h.logger.Error("unauthorized access", zap.Any("serviceKeyID", serviceKeyId), zap.Any("waitlistID", input.ID))
+	if key := helper.GetWaitlistKey(ctx); key.ID != input.ID {
+		h.logger.Error("unauthorized access", zap.Any("key", key), zap.Any("waitlistID", input.ID))
 		return nil, huma.Error403Forbidden("Cannot get analytics for another account")
 	}
 
@@ -617,9 +619,14 @@ type ExportEmailsToCSVOutput struct {
 }
 
 func (h *httpHandler) exportEmailsToCSV(ctx context.Context, input *IDPathParam) (*ExportEmailsToCSVOutput, error) {
-	if serviceKeyId := helper.GetWaitlistServiceKey(ctx); serviceKeyId != input.ID.String() {
-		h.logger.Error("unauthorized access", zap.Any("serviceKeyID", serviceKeyId), zap.Any("waitlistID", input.ID))
+	if key := helper.GetWaitlistKey(ctx); key.ID != input.ID {
+		h.logger.Error("unauthorized access", zap.Any("key", key), zap.Any("waitlistID", input.ID))
 		return nil, huma.Error403Forbidden("Cannot export emails to CSV for another account")
+	}
+
+	if sub := helper.GetWaitlistSubscription(ctx); !h.subscriptionService.IsProProduct(sub.StripeProductID) &&
+		!h.subscriptionService.IsEntrepreneurProduct(sub.StripeProductID) {
+		return nil, huma.Error403Forbidden("You must be a Pro or Entrepreneur account to export emails to CSV")
 	}
 
 	waitlistResp, err := h.waitlistService.GetById(ctx, input.ID)
