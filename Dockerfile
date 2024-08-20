@@ -13,17 +13,11 @@ RUN go mod download
 # Copy the source from the current directory to the Working Directory inside the container
 COPY . .
 
-# Install make
-RUN apk add --no-cache make
-
 # Build the Go app
 RUN go build -o bin/waitq/api cmd/app/main.go
 
-# Install wget and curl
-RUN apk add --no-cache wget curl
-
-# Expose port 8080 to the outside world
-EXPOSE 8080
+# Expose port 3000 to the outside world
+EXPOSE 3000
 
 # Command to run the executable
 CMD ["./bin/waitq/api"]
