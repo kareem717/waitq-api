@@ -17,10 +17,10 @@ COPY . .
 RUN apk add --no-cache make
 
 # Build the Go app
-RUN make build
+RUN go build -tags dev -o bin/waitq/api cmd/app/main.go
 
 # Expose port 8080 to the outside world
 EXPOSE 8080
 
 # Command to run the executable
-CMD ["go build -tags dev -o bin/waitq/api cmd/app/main.go", "./bin/waitq/api"]
+CMD ["./bin/waitq/api"]
