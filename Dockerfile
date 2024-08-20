@@ -20,7 +20,7 @@ RUN apk add --no-cache make
 RUN go build -o bin/waitq/api cmd/app/main.go
 
 # Expose port 8080 to the outside world
-EXPOSE 8080
+EXPOSE 6796
 
 # Command to run the executable
 CMD ["./bin/waitq/api"]
