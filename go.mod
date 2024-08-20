@@ -1,6 +1,6 @@
 module waitq/api
 
-go 1.22.4
+go 1.23
 
 require (
 	github.com/alexlast/bunzap v0.1.0
