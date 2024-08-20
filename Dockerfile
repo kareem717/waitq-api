@@ -22,5 +22,8 @@ RUN go build -o bin/waitq/api cmd/app/main.go
 # Expose port 3000 to the outside world
 EXPOSE 3000
 
+# Health check to ensure the app is running
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s CMD curl --fail http://localhost:3000/docs || exit 1
+
 # Command to run the executable
 CMD ["./bin/waitq/api"]
