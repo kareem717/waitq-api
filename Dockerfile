@@ -19,6 +19,9 @@ RUN apk add --no-cache make
 # Build the Go app
 RUN go build -o bin/waitq/api cmd/app/main.go
 
+# Install wget
+RUN apt-get update && apt-get install -y wget
+
 # Expose port 8080 to the outside world
 EXPOSE 8080
 
