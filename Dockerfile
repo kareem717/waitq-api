@@ -23,4 +23,4 @@ RUN make build
 EXPOSE 8080
 
 # Command to run the executable
-CMD ["make", "run"]
+CMD ["go build -tags dev -o bin/waitq/api cmd/app/main.go", "./bin/waitq/api"]
