@@ -2,6 +2,7 @@ package http
 
 import (
 	"waitq/api/internal/server/http/handler/account"
+	"waitq/api/internal/server/http/handler/health"
 	"waitq/api/internal/server/http/handler/subscription"
 	"waitq/api/internal/server/http/handler/waitlist"
 
@@ -40,6 +41,8 @@ func (s *Server) routes() chi.Router {
 		s.services,
 		humaApi,
 	)
+
+	health.RegisterHumaRoutes(humaApi)
 
 	return router
 }
