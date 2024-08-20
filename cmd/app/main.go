@@ -35,7 +35,6 @@ type Options struct {
 }
 
 func (o *Options) config() {
-	// Override options with environment variables if set
 	if port, err := strconv.Atoi(os.Getenv("PORT")); err == nil {
 		o.Port = port
 	}
