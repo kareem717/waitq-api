@@ -32,8 +32,6 @@ type Options struct {
 	StripeAPIKey                   string `help:"Stripe API Key" short:"S"`
 	StripeSubscriptionCallbackPath string `help:"Stripe Subscription Callback Path" short:"C"`
 	BaseAPIURL                     string `help:"Base API URL" short:"B"`
-	StripeProProductID             string `help:"Stripe Pro Product ID" short:"P"`
-	StripeEntrepreneurProductID    string `help:"Stripe Entrepreneur Product ID" short:"E"`
 }
 
 func (o *Options) config() {
@@ -51,8 +49,6 @@ func (o *Options) config() {
 	o.StripeAPIKey = os.Getenv("STRIPE_API_KEY")
 	o.BaseAPIURL = os.Getenv("BASE_API_URL")
 	o.StripeSubscriptionCallbackPath = os.Getenv("STRIPE_SUBSCRIPTION_CALLBACK_PATH")
-	o.StripeProProductID = os.Getenv("STRIPE_PRO_PRODUCT_ID")
-	o.StripeEntrepreneurProductID = os.Getenv("STRIPE_ENTREPRENEUR_PRODUCT_ID")
 }
 
 func main() {
@@ -79,11 +75,9 @@ func main() {
 		resendClient := resend.NewClient(options.ResendAPIKey)
 		mailer := mailer.NewMailer(resendClient)
 		stripeClient := stripe.NewClient(stripe.ClientConfig{
-			StripeAPIKey:                options.StripeAPIKey,
-			BaseURL:                     options.BaseAPIURL,
-			SubscriptionCallbackPath:    options.StripeSubscriptionCallbackPath,
-			StripeProProductID:          options.StripeProProductID,
-			StripeEntrepreneurProductID: options.StripeEntrepreneurProductID,
+			StripeAPIKey:             options.StripeAPIKey,
+			BaseURL:                  options.BaseAPIURL,
+			SubscriptionCallbackPath: options.StripeSubscriptionCallbackPath,
 		})
 
 		postgresConfig := postgres.NewConfig(options.DatabaseURL)

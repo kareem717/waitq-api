@@ -13,8 +13,6 @@ type ClientConfig struct {
 	StripeAPIKey                string
 	BaseURL                     string
 	SubscriptionCallbackPath    string
-	StripeProProductID          string
-	StripeEntrepreneurProductID string
 }
 
 type Client struct {
