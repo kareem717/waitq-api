@@ -148,21 +148,13 @@ func RegisterHumaRoutes(
 	}, handler.delete)
 
 	huma.Register(humaApi, huma.Operation{
-		OperationID: "add-emails-to-waitlist",
+		OperationID: "add-email-to-waitlist",
 		Method:      http.MethodPost,
-		Path:        "/waitlists/{id}/emails/create",
+		Path:        "/waitlists/{id}/emails/add",
 		Summary:     "Add emails to a waitlist",
 		Description: "Add emails to a waitlist.",
 		Tags:        []string{"Waitlists"},
-		Security: []map[string][]string{
-			{"bearerAuth": {}},
-		},
-		Middlewares: huma.Middlewares{
-			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithWaitlistOwnerSubscription(humaApi)(ctx, next, service)
-			},
-		},
-	}, handler.addEmails)
+	}, handler.addEmail)
 
 	huma.Register(humaApi, huma.Operation{
 		OperationID: "unsubscribe-from-waitlist",
@@ -180,14 +172,6 @@ func RegisterHumaRoutes(
 		Summary:     "Get unsubscribed email JWT",
 		Description: "Get unsubscribed email JWT.",
 		Tags:        []string{"Waitlists"},
-		Security: []map[string][]string{
-			{"bearerAuth": {}},
-		},
-		Middlewares: huma.Middlewares{
-			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithWaitlistServiceKey(humaApi)(ctx, next, service)
-			},
-		},
 	}, handler.getUnsubscribedEmailJWT)
 
 	huma.Register(humaApi, huma.Operation{
@@ -260,5 +244,34 @@ func RegisterHumaRoutes(
 			},
 		},
 	}, handler.exportEmailsToCSV)
+
+	huma.Register(humaApi, huma.Operation{
+		OperationID: "check-url-alias-available",
+		Method:      http.MethodGet,
+		Path:        "/waitlists/public/{urlAlias}/available",
+		Summary:     "Check if a URL alias is available",
+		Description: "Check if a URL alias is available.",
+		Tags:        []string{"Waitlists"},
+		Security: []map[string][]string{
+			{"bearerAuth": {}},
+		},
+		Middlewares: huma.Middlewares{
+			func(ctx huma.Context, next func(huma.Context)) {
+				middleware.WithUser(humaApi)(ctx, next, service)
+			},
+			func(ctx huma.Context, next func(huma.Context)) {
+				middleware.WithAccount(humaApi)(ctx, next, service)
+			},
+		},
+	}, handler.urlAliasAvailable)
+
+	huma.Register(humaApi, huma.Operation{
+		OperationID: "get-waitlist-by-url-alias",
+		Method:      http.MethodGet,
+		Path:        "/waitlists/public/{urlAlias}",
+		Summary:     "Get a waitlist by URL alias",
+		Description: "Get a waitlist by URL alias.",
+		Tags:        []string{"Waitlists"},
+	}, handler.getWaitlistByURLAlias)
 
 }

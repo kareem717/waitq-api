@@ -5,6 +5,7 @@ CREATE TABLE
         id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
         account_id UUID NOT NULL,
         NAME TEXT NOT NULL,
+        url_alias VARCHAR(32) NOT NULL,
         anon_key TEXT NOT NULL UNIQUE,
         service_key TEXT NOT NULL UNIQUE,
         jwt_secret VARCHAR(512) NOT NULL CHECK (LENGTH(jwt_secret)>31),
@@ -12,6 +13,10 @@ CREATE TABLE
         updated_at timestamptz,
         deleted_at timestamptz
     );
+
+CREATE UNIQUE INDEX unique_url_alias_not_deleted ON waitlists (url_alias)
+WHERE
+    deleted_at IS NULL;
 
 CREATE TRIGGER sync_waitlist_updated_at BEFORE
 UPDATE ON waitlists FOR EACH ROW

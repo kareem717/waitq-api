@@ -16,13 +16,15 @@ import (
 
 type subscriptionService struct {
 	subscriptionRepository storage.SubscriptionRepository
+	waitlistRepository     storage.WaitlistRepository
 	stripeClient           *stripeClient.Client
 	logger                 *zap.Logger
 }
 
-func NewSubscriptionService(subscriptionRepository storage.SubscriptionRepository, stripeClient *stripeClient.Client, logger *zap.Logger) *subscriptionService {
+func NewSubscriptionService(subscriptionRepository storage.SubscriptionRepository, waitlistRepository storage.WaitlistRepository, stripeClient *stripeClient.Client, logger *zap.Logger) *subscriptionService {
 	return &subscriptionService{
 		subscriptionRepository: subscriptionRepository,
+		waitlistRepository:     waitlistRepository,
 		stripeClient:           stripeClient,
 		logger:                 logger,
 	}
@@ -173,4 +175,15 @@ func (s *subscriptionService) CancelAccountSubscription(ctx context.Context, acc
 	}
 
 	return nil
+}
+
+func (s *subscriptionService) GetSubscriptionByWaitlistId(ctx context.Context, waitlistId uuid.UUID) (subscription.Subscription, error) {
+	waitlist, err := s.waitlistRepository.GetById(ctx, waitlistId)
+	if err != nil {
+		return subscription.Subscription{}, err
+	}
+
+	sub, err := s.subscriptionRepository.GetByAccountId(ctx, waitlist.AccountID)
+
+	return sub, nil
 }

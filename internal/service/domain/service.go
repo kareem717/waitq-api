@@ -24,7 +24,7 @@ func NewService(
 	return &service.Service{
 		AccountService:      account.NewAccountService(repositories.Account, sb),
 		WaitlistService:     waitlist.NewWaitlistService(repositories.Waitlist, sb, mailer),
-		SubscriptionService: subscription.NewSubscriptionService(repositories.Subscription, stripeClient, logger),
+		SubscriptionService: subscription.NewSubscriptionService(repositories.Subscription, repositories.Waitlist, stripeClient, logger),
 		Logger:              logger,
 		SupabaseClient:      sb,
 	}

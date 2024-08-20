@@ -166,3 +166,11 @@ func generateKeys(secret string, id uuid.UUID) (Keys, error) {
 
 	return keys, nil
 }
+
+func (s *WaitlistService) IsURLAliasAvailable(ctx context.Context, urlAlias string) (bool, error) {
+	return s.waitlistRepository.IsURLAliasAvailable(ctx, urlAlias)
+}
+
+func (s *WaitlistService) GetByURLAlias(ctx context.Context, urlAlias string) (waitlist.Waitlist, error) {
+	return s.waitlistRepository.GetByURLAlias(ctx, urlAlias)
+}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"waitq/api/internal/entities/account"
 	"waitq/api/internal/entities/subscription"
-	"waitq/api/internal/entities/token"
 	"waitq/api/internal/entities/waitlist"
 	"waitq/api/internal/storage/postgres/shared"
 
@@ -34,11 +33,8 @@ type WaitlistRepository interface {
 	GetAnalytics(ctx context.Context, waitlistId uuid.UUID) (waitlist.WaitlistAnalytics, error)
 	GetEmailCountByWaitlistID(ctx context.Context, waitlistId uuid.UUID, includeDeleted bool, includeUnsubscribed bool) (int, error)
 	GetActiveWaitlistCountByAccountId(ctx context.Context, accountId uuid.UUID) (int, error)
-}
-
-type TokenRepository interface {
-	CreateRandom(ctx context.Context) (token.Token, error)
-	GetByToken(ctx context.Context, token int) (token.Token, error)
+	GetByURLAlias(ctx context.Context, urlAlias string) (waitlist.Waitlist, error)
+	IsURLAliasAvailable(ctx context.Context, urlAlias string) (bool, error)
 }
 
 type SubscriptionRepository interface {
@@ -54,5 +50,4 @@ type Repository struct {
 	Account      AccountRepository
 	Waitlist     WaitlistRepository
 	Subscription SubscriptionRepository
-	Token        TokenRepository
 }

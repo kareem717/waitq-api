@@ -7,6 +7,7 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
+	"regexp"
 	"time"
 
 	"waitq/api/internal/entities/waitlist"
@@ -98,6 +99,7 @@ type CreateWaitlistInput struct {
 		CreateWaitlistFields struct {
 			Name      string    `json:"name" minLength:"3" maxLength:"100"`
 			AccountID uuid.UUID `json:"accountId" minLength:"36" maxLength:"36" format:"uuid"`
+			URLAlias  string    `json:"urlAlias" minLength:"1" maxLength:"32"`
 		} `json:"waitlist"`
 	}
 }
@@ -134,9 +136,16 @@ func (h *httpHandler) create(ctx context.Context, input *CreateWaitlistInput) (*
 		return nil, huma.Error403Forbidden("You need to upgrade your account to create more waitlists")
 	}
 
+	// check if url alias is alphanumeric
+	if !regexp.MustCompile(`^[a-zA-Z0-9]+$`).MatchString(input.Body.CreateWaitlistFields.URLAlias) {
+		h.logger.Error("invalid url alias", zap.Any("urlAlias", input.Body.CreateWaitlistFields.URLAlias))
+		return nil, huma.Error400BadRequest("URL alias must be alphanumeric")
+	}
+
 	waitlist, err := h.waitlistService.Create(ctx, waitlist.Waitlist{
 		Name:      input.Body.CreateWaitlistFields.Name,
 		AccountID: input.Body.CreateWaitlistFields.AccountID,
+		URLAlias:  input.Body.CreateWaitlistFields.URLAlias,
 	})
 
 	if err != nil {
@@ -204,7 +213,8 @@ type UpdateWaitlistInput struct {
 	IDPathParam
 	Body struct {
 		UpdateWaitlistFields struct {
-			Name string `json:"name" minLength:"3" maxLength:"100"`
+			Name     string `json:"name" minLength:"3" maxLength:"100"`
+			URLAlias string `json:"urlAlias" minLength:"1" maxLength:"32"`
 		} `json:"waitlist"`
 	}
 }
@@ -332,7 +342,7 @@ func (h *httpHandler) delete(ctx context.Context, input *IDPathParam) (*MessageO
 type AddEmailsInput struct {
 	IDPathParam
 	Body struct {
-		Email string `json:"emails" minLength:"3" maxLength:"320" format:"email"`
+		Email string `json:"email" minLength:"3" maxLength:"320" format:"email"`
 	}
 }
 
@@ -343,7 +353,7 @@ type AddEmailsOutput struct {
 	}
 }
 
-func (h *httpHandler) addEmails(ctx context.Context, input *AddEmailsInput) (*AddEmailsOutput, error) {
+func (h *httpHandler) addEmail(ctx context.Context, input *AddEmailsInput) (*AddEmailsOutput, error) {
 	waitlistResp, err := h.waitlistService.GetById(ctx, input.ID)
 	if err != nil {
 		switch {
@@ -365,8 +375,14 @@ func (h *httpHandler) addEmails(ctx context.Context, input *AddEmailsInput) (*Ad
 		return nil, huma.Error500InternalServerError("An error occurred while fetching the emails")
 	}
 
-	if sub := helper.GetWaitlistSubscription(ctx); sub == nil || sub.MaxPeoplePerWaitlist <= activeEmails {
-		return nil, huma.Error403Forbidden("You need to upgrade your account to add more emails to the waitlist")
+	sub, err := h.subscriptionService.GetSubscriptionByWaitlistId(ctx, waitlistResp.ID)
+	if err != nil {
+		h.logger.Error("failed to fetch subscription", zap.Error(err))
+		return nil, huma.Error500InternalServerError("An error occurred while fetching the subscription")
+	}
+
+	if sub.MaxPeoplePerWaitlist <= activeEmails {
+		return nil, huma.Error403Forbidden("Waitlist at capacity")
 	}
 
 	email, err := h.waitlistService.AddEmail(ctx, waitlistResp.ID, input.Body.Email)
@@ -701,6 +717,52 @@ func (h *httpHandler) exportEmailsToCSV(ctx context.Context, input *IDPathParam)
 	resp.ContentType = "text/csv"
 	resp.ContentDisposition = fmt.Sprintf("attachment; filename=%s.csv", waitlistResp.Name)
 	resp.Body = buffer.Bytes()
+
+	return resp, nil
+}
+
+type URLAliasPathParam struct {
+	URLAlias string `path:"urlAlias" minLength:"1" maxLength:"32"`
+}
+
+type GetWaitlistByURLAliasOutput struct {
+	Body struct {
+		Message  string                  `json:"message"`
+		Waitlist waitlist.PublicWaitlist `json:"publicWaitlist"`
+	}
+}
+
+func (h *httpHandler) getWaitlistByURLAlias(ctx context.Context, input *URLAliasPathParam) (*GetWaitlistByURLAliasOutput, error) {
+	wailistResp, err := h.waitlistService.GetByURLAlias(ctx, input.URLAlias)
+	if err != nil {
+		h.logger.Error("failed to fetch waitlist", zap.Error(err))
+		return nil, huma.Error500InternalServerError("An error occurred while fetching the waitlist")
+	}
+
+	resp := &GetWaitlistByURLAliasOutput{}
+	resp.Body.Message = "Waitlist fetched successfully"
+	resp.Body.Waitlist = wailistResp.PublicWaitlist()
+
+	return resp, nil
+}
+
+type URLAliasAvailableOutput struct {
+	Body struct {
+		Message   string `json:"message"`
+		Available bool   `json:"available"`
+	}
+}
+
+func (h *httpHandler) urlAliasAvailable(ctx context.Context, input *URLAliasPathParam) (*URLAliasAvailableOutput, error) {
+	available, err := h.waitlistService.IsURLAliasAvailable(ctx, input.URLAlias)
+	if err != nil {
+		h.logger.Error("failed to check if url alias exists", zap.Error(err))
+		return nil, huma.Error500InternalServerError("An error occurred while checking if the url alias exists")
+	}
+
+	resp := &URLAliasAvailableOutput{}
+	resp.Body.Message = "URL alias available"
+	resp.Body.Available = available
 
 	return resp, nil
 }

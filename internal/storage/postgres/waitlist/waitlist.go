@@ -124,3 +124,25 @@ func (r *WaitlistRepository) GetActiveWaitlistCountByAccountId(ctx context.Conte
 
 	return count, err
 }
+
+func (r *WaitlistRepository) IsURLAliasAvailable(ctx context.Context, urlAlias string) (bool, error) {
+	taken, err := r.db.NewSelect().
+		Model(&waitlist.Waitlist{}).
+		Where("url_alias = ?", urlAlias).
+		Where("deleted_at IS NULL").
+		Exists(ctx)
+
+	return !taken, err
+}
+
+func (r *WaitlistRepository) GetByURLAlias(ctx context.Context, urlAlias string) (waitlist.Waitlist, error) {
+	resp := waitlist.Waitlist{}
+
+	err := r.db.NewSelect().
+		Model(&resp).
+		Where("url_alias = ?", urlAlias).
+		Where("deleted_at IS NULL").
+		Scan(ctx)
+
+	return resp, err
+}

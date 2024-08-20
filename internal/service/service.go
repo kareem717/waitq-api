@@ -43,6 +43,8 @@ type WaitlistService interface {
 	ExportEmails(ctx context.Context, waitlistId uuid.UUID) (chan string, chan error)
 	GetActiveWaitlistCountByAccountId(ctx context.Context, accountId uuid.UUID) (int, error)
 	GetActiveEmailCountByWaitlistId(ctx context.Context, waitlistId uuid.UUID) (int, error)
+	GetByURLAlias(ctx context.Context, urlAlias string) (waitlist.Waitlist, error)
+	IsURLAliasAvailable(ctx context.Context, urlAlias string) (bool, error)
 }
 
 type SubscriptionService interface {
@@ -52,6 +54,7 @@ type SubscriptionService interface {
 	GetAccountSubscriptionRelationship(ctx context.Context, accountId uuid.UUID) (subscription.AccountSubscription, error)
 	CancelAccountSubscription(ctx context.Context, accountId uuid.UUID) error
 	UpdateAccountSubscription(ctx context.Context, accountId uuid.UUID, newPriceID string) (subscription.AccountSubscription, error)
+	GetSubscriptionByWaitlistId(ctx context.Context, waitlistId uuid.UUID) (subscription.Subscription, error)
 }
 
 // Service storage of all services.
