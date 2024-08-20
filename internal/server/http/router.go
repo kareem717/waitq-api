@@ -42,7 +42,7 @@ func (s *Server) routes() chi.Router {
 		humaApi,
 	)
 
-	health.RegisterHumaRoutes(humaApi)
+	health.RegisterHumaRoutes(humaApi, s.services)
 
 	return router
 }

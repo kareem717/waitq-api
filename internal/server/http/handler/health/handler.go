@@ -2,12 +2,18 @@ package health
 
 import (
 	"context"
+
+	"go.uber.org/zap"
 )
 
-type httpHandler struct{}
+type httpHandler struct {
+	logger *zap.Logger
+}
 
-func newHTTPHandler() *httpHandler {
-	return &httpHandler{}
+func newHTTPHandler(logger *zap.Logger) *httpHandler {
+	return &httpHandler{
+		logger: logger,
+	}
 }
 
 type HealthCheckOutput struct {
@@ -17,6 +23,8 @@ type HealthCheckOutput struct {
 }
 
 func (h *httpHandler) healthCheck(ctx context.Context, input *struct{}) (*HealthCheckOutput, error) {
+	h.logger.Info("healthy :)")
+
 	resp := &HealthCheckOutput{}
 	resp.Body.Message = "OK"
 

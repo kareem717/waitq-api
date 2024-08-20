@@ -3,13 +3,18 @@ package health
 import (
 	"net/http"
 
+	"waitq/api/internal/service"
+
 	"github.com/danielgtaylor/huma/v2"
 )
 
 func RegisterHumaRoutes(
 	humaApi huma.API,
+	services *service.Service,
 ) {
-	handler := &httpHandler{}
+	handler := &httpHandler{
+		logger: services.Logger,
+	}
 
 	huma.Register(humaApi, huma.Operation{
 		OperationID: "health-check",
