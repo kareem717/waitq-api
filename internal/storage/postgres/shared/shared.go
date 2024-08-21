@@ -1,6 +1,7 @@
 package shared
 
 import (
+	"github.com/google/uuid"
 	"github.com/uptrace/bun"
 )
 
@@ -31,9 +32,8 @@ type EmailPaginationRequest struct {
 	GetManyRequest
 }
 
-type PaginationResponse struct {
-	Data     []interface{}
-	Total    int
-	Page     int
-	PageSize int
+type CursorPaginationRequest struct {
+	Cursor   uuid.UUID `json:"cursor" required:"false" minLength:"36" maxLength:"36" format:"uuid"`
+	PageSize int       `json:"pageSize" default:"10" min:"1" max:"50000" required:"false"`
+	GetManyRequest
 }

@@ -31,6 +31,8 @@ func (w *Waitlist) PublicWaitlist() PublicWaitlist {
 }
 
 type PublicWaitlist struct {
+	bun.BaseModel `bun:"table:waitlists"`
+
 	ID        uuid.UUID `json:"id"`
 	URLAlias  string    `json:"urlAlias"`
 	Name      string    `json:"name"`

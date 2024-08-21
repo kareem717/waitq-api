@@ -174,3 +174,7 @@ func (s *WaitlistService) IsURLAliasAvailable(ctx context.Context, urlAlias stri
 func (s *WaitlistService) GetByURLAlias(ctx context.Context, urlAlias string) (waitlist.Waitlist, error) {
 	return s.waitlistRepository.GetByURLAlias(ctx, urlAlias)
 }
+
+func (s *WaitlistService) GetPublicMany(ctx context.Context, input pgShared.CursorPaginationRequest) ([]waitlist.PublicWaitlist, error) {
+	return s.waitlistRepository.GetPublicMany(ctx, input)
+}

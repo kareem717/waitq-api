@@ -2,6 +2,7 @@ package waitlist
 
 import (
 	"context"
+	"log"
 	"waitq/api/internal/entities/waitlist"
 	"waitq/api/internal/storage/postgres/shared"
 
@@ -145,4 +146,26 @@ func (r *WaitlistRepository) GetByURLAlias(ctx context.Context, urlAlias string)
 		Scan(ctx)
 
 	return resp, err
+}
+
+func (r *WaitlistRepository) GetPublicMany(ctx context.Context, input shared.CursorPaginationRequest) ([]waitlist.PublicWaitlist, error) {
+	resp := []waitlist.PublicWaitlist{}
+
+	//TODO: not getting account id
+	query := r.db.NewSelect().
+		Model(&resp).
+		OrderExpr("id ASC").
+		Limit(input.PageSize + 1)
+
+	if input.Cursor != uuid.Nil {
+		query = query.Where("id >= ?", input.Cursor)
+	}
+
+	if !input.IncludeDeleted {
+		query = query.Where("deleted_at IS NULL")
+	}
+
+	log.Println(query.String())
+	return resp, query.Scan(ctx)
+
 }

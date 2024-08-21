@@ -766,3 +766,59 @@ func (h *httpHandler) urlAliasAvailable(ctx context.Context, input *URLAliasPath
 
 	return resp, nil
 }
+
+type GetPublicManyWaitlistsInput struct {
+	Body struct {
+		shared.CursorPaginationRequest
+	}
+}
+
+type GetPublicManyWaitlistsOutput struct {
+	Body struct {
+		Message    string                    `json:"message"`
+		Waitlists  []waitlist.PublicWaitlist `json:"waitlists"`
+		Count      int                       `json:"count"`
+		HasNext    bool                      `json:"hasNext"`
+		NextCursor *uuid.UUID                `json:"nextCursor"`
+		PrevCursor *uuid.UUID                `json:"prevCursor"`
+	}
+}
+
+func (h *httpHandler) getPublicManyWaitlists(ctx context.Context, input *GetPublicManyWaitlistsInput) (*GetPublicManyWaitlistsOutput, error) {
+	waitlists, err := h.waitlistService.GetPublicMany(ctx, input.Body.CursorPaginationRequest)
+	if err != nil {
+		h.logger.Error("failed to check if url alias exists", zap.Error(err))
+		return nil, huma.Error500InternalServerError("An error occurred while checking if the url alias exists")
+	}
+
+	length := len(waitlists)
+
+	resp := &GetPublicManyWaitlistsOutput{}
+	resp.Body.Message = "Waitlists fetched successfully"
+
+	if length == 0 {
+		resp.Body.Count = 0
+		return resp, nil
+	}
+
+	count := length - 1
+	limit := input.Body.CursorPaginationRequest.PageSize
+
+	resp.Body.Count = count
+
+	if length > limit {
+		resp.Body.HasNext = true
+		resp.Body.NextCursor = &waitlists[count].ID // Take the address of the UUID
+		resp.Body.Waitlists = waitlists[0:count]
+
+	} else {
+		resp.Body.Waitlists = waitlists
+		resp.Body.HasNext = false
+	}
+
+	if input.Body.CursorPaginationRequest.Cursor != uuid.Nil {
+		resp.Body.PrevCursor = &input.Body.CursorPaginationRequest.Cursor // Take the address of the UUID
+	}
+
+	return resp, nil
+}

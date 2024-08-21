@@ -274,4 +274,13 @@ func RegisterHumaRoutes(
 		Tags:        []string{"Waitlists"},
 	}, handler.getWaitlistByURLAlias)
 
+	huma.Register(humaApi, huma.Operation{
+		OperationID: "get-public-waitlist-main-page",
+		Method:      http.MethodPost,
+		Path:        "/waitlists/public",
+		Summary:     "Get many public waitlists",
+		Description: "Get SEO sitemap data.",
+		Tags:        []string{"Waitlists"},
+	}, handler.getPublicManyWaitlists)
+
 }

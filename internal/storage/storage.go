@@ -35,6 +35,7 @@ type WaitlistRepository interface {
 	GetActiveWaitlistCountByAccountId(ctx context.Context, accountId uuid.UUID) (int, error)
 	GetByURLAlias(ctx context.Context, urlAlias string) (waitlist.Waitlist, error)
 	IsURLAliasAvailable(ctx context.Context, urlAlias string) (bool, error)
+	GetPublicMany(ctx context.Context, input shared.CursorPaginationRequest) ([]waitlist.PublicWaitlist, error)
 }
 
 type SubscriptionRepository interface {
