@@ -20,12 +20,14 @@ func NewService(
 	sb *supabase.Client,
 	mailer *mailer.Mailer,
 	stripeClient *stripe.Client,
+	stripeWebhookSecret string,
 ) *service.Service {
 	return &service.Service{
-		AccountService:      account.NewAccountService(repositories.Account, sb),
+		AccountService:      account.NewAccountService(repositories.Account, sb, stripeClient),
 		WaitlistService:     waitlist.NewWaitlistService(repositories.Waitlist, sb, mailer),
-		SubscriptionService: subscription.NewSubscriptionService(repositories.Subscription, repositories.Waitlist, stripeClient, logger),
+		SubscriptionService: subscription.NewSubscriptionService(repositories.Subscription, repositories.Waitlist, repositories.Account, stripeClient, logger),
 		Logger:              logger,
 		SupabaseClient:      sb,
+		StripeWebhookSecret: stripeWebhookSecret,
 	}
 }

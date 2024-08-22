@@ -2,40 +2,28 @@ package stripe
 
 import (
 	"errors"
-	"net/url"
 
 	"github.com/stripe/stripe-go/v79"
+	billingsession "github.com/stripe/stripe-go/v79/billingportal/session"
 	"github.com/stripe/stripe-go/v79/checkout/session"
 	"github.com/stripe/stripe-go/v79/subscription"
+	"github.com/stripe/stripe-go/v79/customer"
 )
 
-type ClientConfig struct {
-	StripeAPIKey                string
-	BaseURL                     string
-	SubscriptionCallbackPath    string
-}
-
 type Client struct {
-	config ClientConfig
+	StripeAPIKey string
 }
 
-func NewClient(config ClientConfig) *Client {
-	// parse baseURL
-	_, err := url.Parse(config.BaseURL)
-	if err != nil {
-		panic("An error occurred while parsing the base URL: " + err.Error() + "\nBase URL: " + config.BaseURL)
-	}
-
-	return &Client{config: config}
+func NewClient(stripeAPIKey string) *Client {
+	return &Client{StripeAPIKey: stripeAPIKey}
 }
 
 func (c *Client) CreateCheckoutSession(priceID string, customerAccountId string, redirectUrl string) (*stripe.CheckoutSession, error) {
-	stripe.Key = c.config.StripeAPIKey
+	stripe.Key = c.StripeAPIKey
 	checkoutParams := &stripe.CheckoutSessionParams{
-		SuccessURL: stripe.String(c.config.BaseURL + c.config.SubscriptionCallbackPath + "?session_id={CHECKOUT_SESSION_ID}"),
+		SuccessURL: stripe.String(redirectUrl),
 		Metadata: map[string]string{
 			"customer_account_id": customerAccountId,
-			"redirect_url":        redirectUrl,
 		},
 		LineItems: []*stripe.CheckoutSessionLineItemParams{
 			{
@@ -52,7 +40,7 @@ func (c *Client) CreateCheckoutSession(priceID string, customerAccountId string,
 }
 
 func (c *Client) GetSession(sessionID string) (*stripe.CheckoutSession, error) {
-	stripe.Key = c.config.StripeAPIKey
+	stripe.Key = c.StripeAPIKey
 	sess, err := session.Get(sessionID, nil)
 	return sess, err
 }
@@ -69,7 +57,7 @@ func (c *Client) GetSessionLineItemIter(sess *stripe.CheckoutSession) (*session.
 }
 
 func (c *Client) GetCustomerSubscriptions(customerID string) (*subscription.Iter, error) {
-	stripe.Key = c.config.StripeAPIKey
+	stripe.Key = c.StripeAPIKey
 
 	params := &stripe.SubscriptionListParams{Customer: stripe.String(customerID)}
 	result := subscription.List(params)
@@ -78,7 +66,7 @@ func (c *Client) GetCustomerSubscriptions(customerID string) (*subscription.Iter
 }
 
 func (c *Client) UpdateCustomerSubscription(subscriptionID string, newPriceID string) (*stripe.Subscription, error) {
-	stripe.Key = c.config.StripeAPIKey
+	stripe.Key = c.StripeAPIKey
 
 	// Retrieve the subscription
 	sub, err := subscription.Get(subscriptionID, nil)
@@ -106,7 +94,7 @@ func (c *Client) UpdateCustomerSubscription(subscriptionID string, newPriceID st
 }
 
 func (c *Client) CancelSubscription(subscriptionID string) (*stripe.Subscription, error) {
-	stripe.Key = c.config.StripeAPIKey
+	stripe.Key = c.StripeAPIKey
 
 	sub, err := subscription.Cancel(subscriptionID, nil)
 	if err != nil {
@@ -114,4 +102,33 @@ func (c *Client) CancelSubscription(subscriptionID string) (*stripe.Subscription
 	}
 
 	return sub, nil
+}
+
+func (c *Client) GetBillingPortalURL(customerID string, returnURL string) (*stripe.BillingPortalSession, error) {
+	stripe.Key = c.StripeAPIKey
+
+	portalParams := &stripe.BillingPortalSessionParams{
+		Customer:  stripe.String(customerID),
+		ReturnURL: stripe.String(returnURL),
+	}
+
+	return billingsession.New(portalParams)
+}
+
+func (c *Client) CreateCustomer(email string, name string) (*stripe.Customer, error) {
+	stripe.Key = c.StripeAPIKey
+
+	customerParams := &stripe.CustomerParams{
+		Email: stripe.String(email),
+		Name:  stripe.String(name),
+	}
+
+	return customer.New(customerParams)
+}
+
+func (c *Client) DeleteCustomer(customerID string) error {
+	stripe.Key = c.StripeAPIKey
+
+	_, err := customer.Del(customerID, nil)
+	return err
 }

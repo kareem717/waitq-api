@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 
+	"waitq/api/internal/entities/account"
 	"waitq/api/internal/entities/subscription"
 	"waitq/api/internal/storage"
 	stripeClient "waitq/api/pkg/stripe"
@@ -17,14 +18,22 @@ import (
 type subscriptionService struct {
 	subscriptionRepository storage.SubscriptionRepository
 	waitlistRepository     storage.WaitlistRepository
+	accountRepository      storage.AccountRepository
 	stripeClient           *stripeClient.Client
 	logger                 *zap.Logger
 }
 
-func NewSubscriptionService(subscriptionRepository storage.SubscriptionRepository, waitlistRepository storage.WaitlistRepository, stripeClient *stripeClient.Client, logger *zap.Logger) *subscriptionService {
+func NewSubscriptionService(
+	subscriptionRepository storage.SubscriptionRepository,
+	waitlistRepository storage.WaitlistRepository,
+	accountRepository storage.AccountRepository,
+	stripeClient *stripeClient.Client,
+	logger *zap.Logger,
+) *subscriptionService {
 	return &subscriptionService{
 		subscriptionRepository: subscriptionRepository,
 		waitlistRepository:     waitlistRepository,
+		accountRepository:      accountRepository,
 		stripeClient:           stripeClient,
 		logger:                 logger,
 	}
@@ -34,19 +43,24 @@ func (s *subscriptionService) CreateStripeCheckoutSession(ctx context.Context, p
 	return s.stripeClient.CreateCheckoutSession(priceId, accountId.String(), redirectUrl)
 }
 
-func (s *subscriptionService) HandleStripeCheckoutSuccess(ctx context.Context, sessionId string) (subscription.AccountSubscription, string, error) {
+func (s *subscriptionService) CreateStripeBillingPortalSession(ctx context.Context, customerID string, returnURL string) (*stripe.BillingPortalSession, error) {
+	return s.stripeClient.GetBillingPortalURL(customerID, returnURL)
+}
+
+func (s *subscriptionService) HandleStripeCheckoutSuccess(ctx context.Context, sessionId string) (subscription.AccountSubscription, error) {
+	sub := subscription.AccountSubscription{}
+
 	session, err := s.stripeClient.GetSession(sessionId)
 	if err != nil {
 		s.logger.Error("failed to get checkout session", zap.Error(err))
-		return subscription.AccountSubscription{}, "", err
+		return sub, err
 	}
 
 	customerAccountId := session.Metadata["customer_account_id"]
-	redirectUrl := session.Metadata["redirect_url"]
 	parsedAccountId, err := uuid.Parse(customerAccountId)
 	if err != nil {
 		s.logger.Error("failed to parse account id during checkout success", zap.Error(err))
-		return subscription.AccountSubscription{}, "", err
+		return sub, err
 	}
 
 	existingSub, err := s.subscriptionRepository.GetRelationshipByAccountId(ctx, parsedAccountId)
@@ -55,19 +69,19 @@ func (s *subscriptionService) HandleStripeCheckoutSuccess(ctx context.Context, s
 			s.logger.Info("account does not have a subscription, creating new subscription", zap.String("account_id", parsedAccountId.String()))
 		} else {
 			s.logger.Error("failed to get account subscription", zap.Error(err))
-			return subscription.AccountSubscription{}, "", err
+			return sub, err
 		}
 	}
 
 	if existingSub.StripeSubscriptionID != "" {
 		s.logger.Error("account already has a subscription, need to upgrade instead of create new subscription", zap.String("account_id", parsedAccountId.String()))
-		return subscription.AccountSubscription{}, "", errors.New("account already has a subscription, need to upgrade instead of create new subscription")
+		return sub, errors.New("account already has a subscription, need to upgrade instead of create new subscription")
 	}
 
 	lineItems, err := s.stripeClient.GetSessionLineItemIter(session)
 	if err != nil {
 		s.logger.Error("failed to get session line item iter", zap.Error(err))
-		return subscription.AccountSubscription{}, "", err
+		return sub, err
 	}
 
 	item := lineItems.LineItem()
@@ -75,28 +89,27 @@ func (s *subscriptionService) HandleStripeCheckoutSuccess(ctx context.Context, s
 	subRecord, err := s.subscriptionRepository.GetByStripeProductId(ctx, item.Price.Product.ID)
 	if err != nil {
 		s.logger.Error("failed to get subscription record", zap.Error(err))
-		return subscription.AccountSubscription{}, "", err
+		return sub, err
 	}
 
-	newSubParams := subscription.AccountSubscription{
+	sub = subscription.AccountSubscription{
 		AccountID:            parsedAccountId,
 		SubscriptionID:       subRecord.ID,
 		StripeSubscriptionID: session.Subscription.ID,
-		StripeCustomerID:     session.Customer.ID,
 		StripePriceID:        item.Price.ID,
 	}
 
-	newSub, err := s.subscriptionRepository.CreateAccountSubscription(ctx, newSubParams)
+	newSub, err := s.subscriptionRepository.CreateAccountSubscription(ctx, sub)
 	if err != nil {
 		s.logger.Error("failed to create account subscription", zap.Error(err))
-		return subscription.AccountSubscription{}, "", err
+		return sub, err
 	}
 
-	return newSub, redirectUrl, nil
+	return newSub, nil
 }
 
 func (s *subscriptionService) UpdateAccountSubscription(ctx context.Context, accountId uuid.UUID, newPriceId string) (subscription.AccountSubscription, error) {
-	existingSub, err := s.subscriptionRepository.GetRelationshipByAccountId(ctx, accountId)
+	account, err := s.accountRepository.GetById(ctx, accountId)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			s.logger.Error("account does not have a subscription, cannot update", zap.String("account_id", accountId.String()))
@@ -107,14 +120,14 @@ func (s *subscriptionService) UpdateAccountSubscription(ctx context.Context, acc
 		}
 	}
 
-	stripeSubIter, err := s.stripeClient.GetCustomerSubscriptions(existingSub.StripeCustomerID)
+	stripeSubIter, err := s.stripeClient.GetCustomerSubscriptions(account.StripeCustomerID)
 	if err != nil {
 		s.logger.Error("failed to get customer subscriptions", zap.Error(err))
 		return subscription.AccountSubscription{}, err
 	}
 
 	if !stripeSubIter.Next() {
-		s.logger.Error("no subscriptions found for customer", zap.String("customer_id", existingSub.StripeCustomerID))
+		s.logger.Error("no subscriptions found for customer", zap.String("customer_id", account.StripeCustomerID))
 		return subscription.AccountSubscription{}, err
 	}
 
@@ -133,7 +146,7 @@ func (s *subscriptionService) UpdateAccountSubscription(ctx context.Context, acc
 		s.logger.Error("failed to create account subscription", zap.Error(err))
 	}
 
-	newAccSub, err := s.subscriptionRepository.UpdateAccountSubscription(ctx, existingSub.AccountID, newSub.ID, price.ID)
+	newAccSub, err := s.subscriptionRepository.UpdateAccountSubscription(ctx, accountId, newSub.ID, price.ID)
 	if err != nil {
 		s.logger.Error("failed to create account subscription", zap.Error(err))
 	}
@@ -187,3 +200,12 @@ func (s *subscriptionService) GetSubscriptionByWaitlistId(ctx context.Context, w
 
 	return sub, nil
 }
+
+func (s *subscriptionService) GetAccountByCustomerId(ctx context.Context, customerId string) (account.Account, error) {
+	return s.accountRepository.GetAccountByCustomerId(ctx, customerId)
+}
+
+func (s *subscriptionService) DeleteAccountSubscriptionRelationship(ctx context.Context, accountId uuid.UUID) error {
+	return s.subscriptionRepository.DeleteRelationship(ctx, accountId)
+}
+

@@ -115,8 +115,9 @@ func (h *httpHandler) getByUserID(ctx context.Context, input *GetAccountByUserID
 type CreateAccountInput struct {
 	Body struct {
 		CreateAccountFields struct {
-			Username string    `json:"username" minLength:"3" maxLength:"100"`
-			UserID   uuid.UUID `json:"userId" minLength:"36" maxLength:"36" format:"uuid"`
+			Name   string    `json:"name" minLength:"3" maxLength:"100"`
+			Email  string    `json:"email" minLength:"3" maxLength:"100" format:"email"`
+			UserID uuid.UUID `json:"userId" minLength:"36" maxLength:"36" format:"uuid"`
 		} `json:"account"`
 	}
 }
@@ -135,8 +136,9 @@ func (h *httpHandler) create(ctx context.Context, input *CreateAccountInput) (*C
 	}
 
 	account, err := h.accountService.Create(ctx, account.Account{
-		Username: input.Body.CreateAccountFields.Username,
-		UserID:   input.Body.CreateAccountFields.UserID,
+		Name:   input.Body.CreateAccountFields.Name,
+		Email:  input.Body.CreateAccountFields.Email,
+		UserID: input.Body.CreateAccountFields.UserID,
 	})
 
 	if err != nil {
@@ -155,7 +157,8 @@ type UpdateAccountInput struct {
 	ID   uuid.UUID `path:"id" minLength:"36" maxLength:"36" format:"uuid"`
 	Body struct {
 		UpdateAccountFields struct {
-			Username string `json:"username" minLength:"3" maxLength:"100"`
+			Name  string `json:"name" minLength:"3" maxLength:"100"`
+			Email string `json:"email" minLength:"3" maxLength:"100" format:"email"`
 		} `json:"account"`
 	}
 }
@@ -189,7 +192,8 @@ func (h *httpHandler) update(ctx context.Context, input *UpdateAccountInput) (*U
 	}
 
 	account, err := h.accountService.Update(ctx, input.ID, account.Account{
-		Username: input.Body.UpdateAccountFields.Username,
+		Name:  input.Body.UpdateAccountFields.Name,
+		Email: input.Body.UpdateAccountFields.Email,
 	})
 
 	if err != nil {

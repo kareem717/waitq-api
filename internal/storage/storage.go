@@ -16,6 +16,7 @@ type AccountRepository interface {
 	Update(ctx context.Context, id uuid.UUID, input account.Account) (account.Account, error)
 	GetByUserId(ctx context.Context, userId uuid.UUID, input shared.GetManyRequest) ([]account.Account, error)
 	GetById(ctx context.Context, id uuid.UUID) (account.Account, error)
+	GetAccountByCustomerId(ctx context.Context, customerId string) (account.Account, error)
 }
 
 type WaitlistRepository interface {

@@ -29,7 +29,6 @@ func (r *SubscriptionRepository) CreateAccountSubscription(ctx context.Context, 
 			Model(&sub).
 			ExcludeColumn("created_at", "updated_at", "deleted_at", "id").
 			Set("subscription_id = ?", sub.SubscriptionID).
-			Set("stripe_customer_id = ?", sub.StripeCustomerID).
 			Set("stripe_price_id = ?", sub.StripePriceID).
 			Returning("*").
 			Scan(ctx, &resp)
@@ -105,3 +104,4 @@ func (r *SubscriptionRepository) DeleteRelationship(ctx context.Context, account
 
 	return err
 }
+

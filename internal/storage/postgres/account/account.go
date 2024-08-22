@@ -90,3 +90,16 @@ func (r *AccountRepository) GetByUserId(ctx context.Context, userId uuid.UUID, i
 
 	return resp, err
 }
+
+func (r *AccountRepository) GetAccountByCustomerId(ctx context.Context, customerId string) (account.Account, error) {
+	resp := account.Account{}
+
+	err := r.db.
+		NewSelect().
+		Model(&resp).
+		Where("stripe_customer_id = ?", customerId).
+		Where("deleted_at IS NULL").
+		Scan(ctx, &resp)
+
+	return resp, err
+}

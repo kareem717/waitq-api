@@ -1,32 +1,5 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE TYPE parsed_email AS (
-    DOMAIN TEXT,
-    local_part TEXT,
-    tld TEXT,
-    HOST TEXT,
-    plain_address TEXT
-);
-
-CREATE FUNCTION parse_email (email TEXT) RETURNS parsed_email AS $$
-DECLARE
-    domain TEXT;
-    local_part TEXT;
-    tld TEXT;
-    host TEXT;
-    plain_address TEXT;
-BEGIN
-    -- Example parsing logic
-    SELECT split_part(email, '@', 2) INTO domain;
-    SELECT split_part(email, '@', 1) INTO local_part;
-    SELECT split_part(split_part(email, '@', 2), '.', 2) INTO tld;
-    SELECT split_part(split_part(email, '@', 2), '.', 1) INTO host;
-    plain_address := email;
-
-    RETURN (domain, local_part, tld, host, plain_address);
-END;
-$$ LANGUAGE plpgsql IMMUTABLE;
-
 CREATE TABLE
     waitlist_emails (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
@@ -52,9 +25,5 @@ EXECUTE FUNCTION sync_updated_at_column ();
 -- +goose Down
 -- +goose StatementBegin
 DROP TABLE waitlist_emails;
-
-DROP FUNCTION parse_email;
-
-DROP TYPE parsed_email;
 
 -- +goose StatementEnd

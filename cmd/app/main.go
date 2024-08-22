@@ -32,6 +32,7 @@ type Options struct {
 	StripeAPIKey                   string `help:"Stripe API Key" short:"S"`
 	StripeSubscriptionCallbackPath string `help:"Stripe Subscription Callback Path" short:"C"`
 	BaseAPIURL                     string `help:"Base API URL" short:"B"`
+	StripeWebhookSecret            string `help:"Stripe Webhook Secret" short:"W"`
 }
 
 func (o *Options) config() {
@@ -48,6 +49,7 @@ func (o *Options) config() {
 	o.StripeAPIKey = os.Getenv("STRIPE_API_KEY")
 	o.BaseAPIURL = os.Getenv("BASE_API_URL")
 	o.StripeSubscriptionCallbackPath = os.Getenv("STRIPE_SUBSCRIPTION_CALLBACK_PATH")
+	o.StripeWebhookSecret = os.Getenv("STRIPE_WEBHOOK_SECRET")
 }
 
 func main() {
@@ -73,15 +75,11 @@ func main() {
 
 		resendClient := resend.NewClient(options.ResendAPIKey)
 		mailer := mailer.NewMailer(resendClient)
-		stripeClient := stripe.NewClient(stripe.ClientConfig{
-			StripeAPIKey:             options.StripeAPIKey,
-			BaseURL:                  options.BaseAPIURL,
-			SubscriptionCallbackPath: options.StripeSubscriptionCallbackPath,
-		})
+		stripeClient := stripe.NewClient(options.StripeAPIKey)
 
 		postgresConfig := postgres.NewConfig(options.DatabaseURL)
 		repositories := postgres.NewRepository(postgresConfig, ctx, logger)
-		services := domain.NewService(repositories, logger, sb, mailer, stripeClient)
+		services := domain.NewService(repositories, logger, sb, mailer, stripeClient, options.StripeWebhookSecret)
 
 		server := httpServer.NewServer(services, options.ApiName, options.ApiVersion)
 

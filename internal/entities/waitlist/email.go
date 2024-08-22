@@ -1,10 +1,6 @@
 package waitlist
 
 import (
-	"database/sql"
-	"database/sql/driver"
-	"fmt"
-	"strings"
 	"waitq/api/internal/entities/shared"
 
 	"time"
@@ -16,55 +12,10 @@ import (
 type Email struct {
 	bun.BaseModel `bun:"table:waitlist_emails"`
 
-	ID             uuid.UUID   `json:"id"`
-	WaitlistID     uuid.UUID   `json:"waitlistId"`
-	Email          string      `json:"email"`
-	ParsedEmail    ParsedEmail `json:"parsedEmail"`
-	UnsubscribedAt *time.Time  `json:"unsubscribedAt"`
+	ID             uuid.UUID          `json:"id"`
+	WaitlistID     uuid.UUID          `json:"waitlistId"`
+	Email          string             `json:"email"`
+	ParsedEmail    shared.ParsedEmail `json:"parsedEmail"`
+	UnsubscribedAt *time.Time         `json:"unsubscribedAt"`
 	shared.Timestamps
-}
-
-type ParsedEmail struct {
-	Domain       string `json:"domain"`
-	LocalPart    string `json:"localPart"`
-	Tld          string `json:"tld"`
-	Host         string `json:"host"`
-	PlainAddress string `json:"plainAddress"`
-}
-
-var _ sql.Scanner = (*ParsedEmail)(nil)
-
-// Scan scans the time parsing it
-// i.e (cisco.com,mdencsbo,com,cisco,mdencsbo@cisco.com)
-func (pe *ParsedEmail) Scan(src interface{}) (err error) {
-	switch src := src.(type) {
-	case string:
-		// Remove the parentheses
-		if len(src) < 2 || src[0] != '(' || src[len(src)-1] != ')' {
-			return fmt.Errorf("invalid format for ParsedEmail: %s", src)
-		}
-		src = src[1 : len(src)-1]
-
-		// Assuming the string format is "domain,localPart,tld,host,plainAddress"
-		parts := strings.Split(src, ",")
-		if len(parts) != 5 {
-			return fmt.Errorf("invalid format for ParsedEmail: %s", src)
-		}
-		pe.Domain = parts[0]
-		pe.LocalPart = parts[1]
-		pe.Tld = parts[2]
-		pe.Host = parts[3]
-		pe.PlainAddress = parts[4]
-		return nil
-	default:
-		return fmt.Errorf("unsupported data type: %T", src)
-	}
-}
-
-var _ driver.Valuer = (*ParsedEmail)(nil)
-
-// Value returns the value of the time as a driver.Value.
-// i.e (cisco.com,mdencsbo,com,cisco,mdencsbo@cisco.com)
-func (pe ParsedEmail) Value() (driver.Value, error) {
-	return pe.PlainAddress, nil
 }

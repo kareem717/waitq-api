@@ -40,6 +40,7 @@ func (s *Server) routes() chi.Router {
 	subscription.RegisterHumaRoutes(
 		s.services,
 		humaApi,
+		s.services.StripeWebhookSecret,
 	)
 
 	health.RegisterHumaRoutes(humaApi, s.services)
