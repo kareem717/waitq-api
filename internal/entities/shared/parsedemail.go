@@ -8,11 +8,10 @@ import (
 )
 
 type ParsedEmail struct {
-	Domain       string `json:"domain"`
-	LocalPart    string `json:"localPart"`
-	Tld          string `json:"tld"`
-	Host         string `json:"host"`
-	PlainAddress string `json:"plainAddress"`
+	Domain string `json:"domain"`
+	Local  string `json:"local"`
+	Tld    string `json:"tld"`
+	Host   string `json:"host"`
 }
 
 var _ sql.Scanner = (*ParsedEmail)(nil)
@@ -34,10 +33,9 @@ func (pe *ParsedEmail) Scan(src interface{}) (err error) {
 			return fmt.Errorf("invalid format for ParsedEmail: %s", src)
 		}
 		pe.Domain = parts[0]
-		pe.LocalPart = parts[1]
+		pe.Local = parts[1]
 		pe.Tld = parts[2]
 		pe.Host = parts[3]
-		pe.PlainAddress = parts[4]
 		return nil
 	default:
 		return fmt.Errorf("unsupported data type: %T", src)
@@ -49,5 +47,5 @@ var _ driver.Valuer = (*ParsedEmail)(nil)
 // Value returns the value of the time as a driver.Value.
 // i.e (cisco.com,mdencsbo,com,cisco,mdencsbo@cisco.com)
 func (pe ParsedEmail) Value() (driver.Value, error) {
-	return pe.PlainAddress, nil
+	return fmt.Sprintf("(%s,%s,%s,%s)", pe.Domain, pe.Local, pe.Tld, pe.Host), nil
 }
