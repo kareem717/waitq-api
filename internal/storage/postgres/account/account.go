@@ -28,8 +28,8 @@ func (r *AccountRepository) Create(ctx context.Context, input account.Account) (
 	err := shared.ExcludeInsertColumns(
 		r.db.
 			NewInsert().
-			ExcludeColumn("id").
 			Model(&input).
+			ExcludeColumn("id").
 			Returning("*"),
 	).Scan(ctx, &resp)
 
