@@ -27,11 +27,12 @@ func (pe *ParsedEmail) Scan(src interface{}) (err error) {
 		}
 		src = src[1 : len(src)-1]
 
-		// Assuming the string format is "domain,localPart,tld,host,plainAddress"
+		// Assuming the string format is "domain,local,tld,host"
 		parts := strings.Split(src, ",")
-		if len(parts) != 5 {
+		if len(parts) != 4 {
 			return fmt.Errorf("invalid format for ParsedEmail: %s", src)
 		}
+
 		pe.Domain = parts[0]
 		pe.Local = parts[1]
 		pe.Tld = parts[2]
