@@ -30,6 +30,7 @@ func (r *AccountRepository) Create(ctx context.Context, input account.Account) (
 			NewInsert().
 			Model(&input).
 			ExcludeColumn("id").
+			ExcludeColumn("parsed_email").
 			Returning("*"),
 	).Scan(ctx, &resp)
 
