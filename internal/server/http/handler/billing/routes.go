@@ -55,7 +55,7 @@ func RegisterHumaRoutes(
 	}, handler.getStripeBillingPortalLink)
 
 	huma.Register(humaApi, huma.Operation{
-		OperationID: "get-account-subscription",
+		OperationID: "get-account-checkout-link",
 		Method:      http.MethodGet,
 		Path:        "/billing/account/{accountId}/checkout/{priceId}",
 		Summary:     "Get a stripe checkout link",
