@@ -12,8 +12,8 @@ import (
 	"go.uber.org/zap"
 )
 
-func WithWaitlistOwnerSubscription(api huma.API) func(ctx huma.Context, next func(huma.Context), sv *service.Service) {
-	return func(ctx huma.Context, next func(huma.Context), sv *service.Service) {
+func WithWaitlistOwnerSubscription(api huma.API) func(ctx huma.Context, next func(huma.Context), logger *zap.Logger, sv *service.Service) {
+	return func(ctx huma.Context, next func(huma.Context), logger *zap.Logger, sv *service.Service) {
 		reqCtx := ctx.Context()
 
 		waitlistKey := shared.GetWaitlistKey(reqCtx)
@@ -21,13 +21,13 @@ func WithWaitlistOwnerSubscription(api huma.API) func(ctx huma.Context, next fun
 		waitlist, err := sv.WaitlistService.GetById(reqCtx, waitlistKey.ID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				sv.Logger.Error("waitlist not found", zap.Error(err))
+				logger.Error("waitlist not found", zap.Error(err))
 				huma.WriteErr(api, ctx, http.StatusNotFound,
 					"Waitlist not found",
 				)
 				return
 			}
-			sv.Logger.Error("failed to get waitlist", zap.Error(err))
+			logger.Error("failed to get waitlist", zap.Error(err))
 			huma.WriteErr(api, ctx, http.StatusInternalServerError,
 				"Failed to get waitlist",
 			)
@@ -37,9 +37,9 @@ func WithWaitlistOwnerSubscription(api huma.API) func(ctx huma.Context, next fun
 		sub, err := sv.SubscriptionService.GetAccountSubscription(reqCtx, waitlist.AccountID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				sv.Logger.Error("account subscription not found", zap.Error(err))
+				logger.Error("account subscription not found", zap.Error(err))
 			}
-			sv.Logger.Error("failed to get account subscription", zap.Error(err))
+			logger.Error("failed to get account subscription", zap.Error(err))
 			next(huma.WithValue(ctx, shared.WaitlistSubscriptionContextKey, nil))
 			return
 		}

@@ -15,6 +15,5 @@ type Account struct {
 	Name             string             `json:"name"`
 	Email            string             `json:"email"`
 	ParsedEmail      shared.ParsedEmail `json:"parsedEmail"`
-	StripeCustomerID string             `json:"stripeCustomerID"`
 	shared.Timestamps
 }

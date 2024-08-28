@@ -69,7 +69,56 @@ func WithMaxConnectionLifetime(maxConnectionLifetime time.Duration) ConfigOption
 	}
 }
 
-func NewRepository(config Config, ctx context.Context, logger *zap.Logger) *storage.Repository {
+func configDBPool(config Config) (*pgxpool.Config, error) {
+	poolConfig, err := pgxpool.ParseConfig(config.URL)
+	if err != nil {
+		return nil, err
+	}
+
+	poolConfig.MaxConns = config.MaxConnections
+	poolConfig.MinConns = config.MinConnections
+	poolConfig.MaxConnIdleTime = config.MaxConnectionIdleTime
+	poolConfig.MaxConnLifetime = config.MaxConnectionLifetime
+
+	return poolConfig, nil
+}
+
+type unitOfWork struct {
+	accountRepo      *account.AccountRepository
+	waitlistRepo     *waitlist.WaitlistRepository
+	subscriptionRepo *subscription.SubscriptionRepository
+	tx               *bun.Tx
+}
+
+func (u *unitOfWork) Account() storage.AccountRepository {
+	return u.accountRepo
+}
+
+func (u *unitOfWork) Waitlist() storage.WaitlistRepository {
+	return u.waitlistRepo
+}
+
+func (u *unitOfWork) Subscription() storage.SubscriptionRepository {
+	return u.subscriptionRepo
+}
+
+func (u *unitOfWork) Commit() error {
+	return u.tx.Commit()
+}
+
+func (u *unitOfWork) Rollback() error {
+	return u.tx.Rollback()
+}
+
+type Repository struct {
+	accountRepo      *account.AccountRepository
+	waitlistRepo     *waitlist.WaitlistRepository
+	subscriptionRepo *subscription.SubscriptionRepository
+	db               *bun.DB
+	ctx              context.Context
+}
+
+func NewRepository(config Config, ctx context.Context, logger *zap.Logger) *Repository {
 	poolConfig, err := configDBPool(config)
 	if err != nil {
 		log.Fatalf("Error creating pool config: %v", err)
@@ -84,11 +133,11 @@ func NewRepository(config Config, ctx context.Context, logger *zap.Logger) *stor
 	}))
 
 	// Increase timeout duration
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	pingCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	log.Println("Attempting to ping the database...")
-	err = db.PingContext(ctx)
+	err = db.PingContext(pingCtx)
 	if err != nil {
 		switch {
 		case errors.Is(err, context.Canceled):
@@ -101,23 +150,56 @@ func NewRepository(config Config, ctx context.Context, logger *zap.Logger) *stor
 	}
 
 	log.Println("Successfully connected to the database.")
-	return &storage.Repository{
-		Account:      account.NewAccountRepository(db, ctx),
-		Waitlist:     waitlist.NewWaitlistRepository(db, ctx),
-		Subscription: subscription.NewSubscriptionRepository(db, ctx),
+	return &Repository{
+		accountRepo:      account.NewAccountRepository(db, ctx),
+		waitlistRepo:     waitlist.NewWaitlistRepository(db, ctx),
+		subscriptionRepo: subscription.NewSubscriptionRepository(db, ctx),
+		db:               db,
+		ctx:              ctx,
 	}
 }
 
-func configDBPool(config Config) (*pgxpool.Config, error) {
-	poolConfig, err := pgxpool.ParseConfig(config.URL)
+func (r *Repository) Account() storage.AccountRepository {
+	return r.accountRepo
+}
+
+func (r *Repository) Waitlist() storage.WaitlistRepository {
+	return r.waitlistRepo
+}
+
+func (r *Repository) Subscription() storage.SubscriptionRepository {
+	return r.subscriptionRepo
+}
+
+func (r *Repository) HealthCheck(ctx context.Context) error {
+	return r.db.PingContext(ctx)
+}
+
+func (r *Repository) NewUnitOfWork() (storage.UnitOfWork, error) {
+	tx, err := r.db.BeginTx(r.ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	poolConfig.MaxConns = config.MaxConnections
-	poolConfig.MinConns = config.MinConnections
-	poolConfig.MaxConnIdleTime = config.MaxConnectionIdleTime
-	poolConfig.MaxConnLifetime = config.MaxConnectionLifetime
+	return &unitOfWork{
+		accountRepo:      account.NewAccountRepository(tx, r.ctx),
+		waitlistRepo:     waitlist.NewWaitlistRepository(tx, r.ctx),
+		subscriptionRepo: subscription.NewSubscriptionRepository(tx, r.ctx),
+		tx:               &tx,
+	}, nil
+}
 
-	return poolConfig, nil
+func (r *Repository) RunInTx(ctx context.Context, fn func(ctx context.Context, uow storage.UnitOfWork) error) error {
+	uow, err := r.NewUnitOfWork()
+	if err != nil {
+		return err
+	}
+
+	err = fn(ctx, uow)
+	if err != nil {
+		uow.Rollback()
+		return err
+	}
+
+	return uow.Commit()
 }

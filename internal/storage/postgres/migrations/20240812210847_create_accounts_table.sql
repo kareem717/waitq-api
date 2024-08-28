@@ -29,7 +29,6 @@ CREATE TABLE
         id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
         user_id UUID NOT NULL REFERENCES auth.users (id) ON DELETE RESTRICT ON UPDATE CASCADE,
         NAME TEXT NOT NULL,
-        stripe_customer_id TEXT NOT NULL,
         email VARCHAR(320) NOT NULL,
         parsed_email parsed_email GENERATED ALWAYS AS (parse_email (email)) STORED NOT NULL,
         created_at timestamptz NOT NULL DEFAULT CLOCK_TIMESTAMP(),

@@ -10,8 +10,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stripe/stripe-go/v79"
-	"github.com/supabase-community/supabase-go"
-	"go.uber.org/zap"
 )
 
 var (
@@ -50,15 +48,14 @@ type WaitlistService interface {
 
 type SubscriptionService interface {
 	CreateStripeCheckoutSession(ctx context.Context, priceId string, accountId uuid.UUID, redirectUrl string) (*stripe.CheckoutSession, error)
-	HandleStripeCheckoutSuccess(ctx context.Context, sessionId string) (subscription.AccountSubscription, error)
+	HandleStripeCheckoutSuccess(ctx context.Context, sessionId string) (subscription.AccountSubscription, string, error)
 	GetAccountSubscription(ctx context.Context, accountId uuid.UUID) (subscription.Subscription, error)
 	GetAccountSubscriptionRelationship(ctx context.Context, accountId uuid.UUID) (subscription.AccountSubscription, error)
 	CancelAccountSubscription(ctx context.Context, accountId uuid.UUID) error
-	UpdateAccountSubscription(ctx context.Context, accountId uuid.UUID, newPriceID string) (subscription.AccountSubscription, error)
+	UpdateAccountSubscription(ctx context.Context, subscription *stripe.Subscription) (subscription.AccountSubscription, error)
 	GetSubscriptionByWaitlistId(ctx context.Context, waitlistId uuid.UUID) (subscription.Subscription, error)
 	CreateStripeBillingPortalSession(ctx context.Context, customerID string, returnURL string) (*stripe.BillingPortalSession, error)
-	GetAccountByCustomerId(ctx context.Context, customerId string) (account.Account, error)
-	DeleteAccountSubscriptionRelationship(ctx context.Context, accountId uuid.UUID) error
+	DeleteAccountSubscription(ctx context.Context, subscription *stripe.Subscription) error
 }
 
 // Service storage of all services.
@@ -66,7 +63,4 @@ type Service struct {
 	AccountService      AccountService
 	WaitlistService     WaitlistService
 	SubscriptionService SubscriptionService
-	Logger              *zap.Logger
-	SupabaseClient      *supabase.Client
-	StripeWebhookSecret string
 }

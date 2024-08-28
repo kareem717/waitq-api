@@ -92,7 +92,17 @@ func (h *httpHandler) getStripeBillingPortalLink(ctx context.Context, input *Get
 		return nil, huma.Error403Forbidden("Cannot get billing portal link for another account")
 	}
 
-	sess, err := h.subscriptionService.CreateStripeBillingPortalSession(ctx, ctxAccount.StripeCustomerID, input.RedirectURL)
+	sub, err := h.subscriptionService.GetAccountSubscriptionRelationship(ctx, ctxAccount.ID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			h.logger.Error("account does not have a subscription", zap.Error(err))
+			return nil, huma.Error404NotFound("Account does not have a subscription")
+		}
+		h.logger.Error("failed to get account subscription relationship", zap.Error(err))
+		return nil, huma.Error500InternalServerError("Failed to get account subscription relationship")
+	}
+
+	sess, err := h.subscriptionService.CreateStripeBillingPortalSession(ctx, sub.StripeCustomerID, input.RedirectURL)
 	if err != nil {
 		h.logger.Error("failed to create stripe billing portal session", zap.Error(err))
 		return nil, huma.Error500InternalServerError("Failed to create stripe billing portal session")
@@ -162,15 +172,15 @@ type HandleStripeWebhookInput struct {
 }
 
 type HandleStripeWebhookOutput struct {
-	Status int
+	RedirectURL *string `header:"Location"`
+	Status      int
 }
 
 func (h *httpHandler) handleStripeWebhook(ctx context.Context, input *HandleStripeWebhookInput) (*HandleStripeWebhookOutput, error) {
-	const MaxBodyBytes = int64(65536)
+	// Limited to 64kb in routes.go to prevent abuse
 	reader := bytes.NewReader(input.Body)
-	limitedReader := io.LimitReader(reader, MaxBodyBytes)
 
-	payload, err := io.ReadAll(limitedReader)
+	payload, err := io.ReadAll(reader)
 	if err != nil {
 		h.logger.Error("failed to read webhook body", zap.Error(err))
 		return nil, huma.Error500InternalServerError("Failed to read webhook body")
@@ -182,6 +192,8 @@ func (h *httpHandler) handleStripeWebhook(ctx context.Context, input *HandleStri
 		return nil, huma.Error400BadRequest("Webhook signature verification failed")
 	}
 
+	resp := &HandleStripeWebhookOutput{}
+
 	switch event.Type {
 	case stripe.EventTypeCustomerSubscriptionUpdated:
 		eventBody, err := parseStripeWebhook[stripe.Subscription](event)
@@ -190,23 +202,14 @@ func (h *httpHandler) handleStripeWebhook(ctx context.Context, input *HandleStri
 			return nil, huma.Error500InternalServerError("Failed to parse webhook json")
 		}
 
-		account, err := h.subscriptionService.GetAccountByCustomerId(ctx, eventBody.Customer.ID)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				h.logger.Error("account subscription relationship not found", zap.Error(err))
-				return nil, huma.Error404NotFound("Account subscription relationship not found")
-			}
-			h.logger.Error("failed to get account by customer id", zap.Error(err))
-			return nil, huma.Error500InternalServerError("Failed to get account by customer id")
-		}
-
-		_, err = h.subscriptionService.UpdateAccountSubscription(ctx, account.ID, eventBody.Items.Data[0].Price.ID)
+		_, err = h.subscriptionService.UpdateAccountSubscription(ctx, eventBody)
 		if err != nil {
 			h.logger.Error("failed to update account subscription", zap.Error(err))
 			return nil, huma.Error500InternalServerError("Failed to update account subscription")
 		}
 
 		h.logger.Info("Subscription was updated!", zap.Any("subscription", eventBody))
+		resp.Status = http.StatusOK
 	case stripe.EventTypeCustomerSubscriptionDeleted:
 		eventBody, err := parseStripeWebhook[stripe.Subscription](event)
 		if err != nil {
@@ -214,23 +217,14 @@ func (h *httpHandler) handleStripeWebhook(ctx context.Context, input *HandleStri
 			return nil, huma.Error500InternalServerError("Failed to parse webhook json")
 		}
 
-		account, err := h.subscriptionService.GetAccountByCustomerId(ctx, eventBody.Customer.ID)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				h.logger.Error("account subscription relationship not found", zap.Error(err))
-				return nil, huma.Error404NotFound("Account subscription relationship not found")
-			}
-			h.logger.Error("failed to get account by customer id", zap.Error(err))
-			return nil, huma.Error500InternalServerError("Failed to get account by customer id")
-		}
-
-		err = h.subscriptionService.DeleteAccountSubscriptionRelationship(ctx, account.ID)
+		err = h.subscriptionService.DeleteAccountSubscription(ctx, eventBody)
 		if err != nil {
 			h.logger.Error("failed to delete account subscription relationship", zap.Error(err))
 			return nil, huma.Error500InternalServerError("Failed to delete account subscription relationship")
 		}
 
 		h.logger.Info("Subscription was deleted!", zap.Any("subscription", eventBody))
+		resp.Status = http.StatusOK
 	case stripe.EventTypeCheckoutSessionCompleted:
 		eventBody, err := parseStripeWebhook[stripe.CheckoutSession](event)
 		if err != nil {
@@ -238,21 +232,20 @@ func (h *httpHandler) handleStripeWebhook(ctx context.Context, input *HandleStri
 			return nil, huma.Error500InternalServerError("Failed to parse webhook json")
 		}
 
-		sub, err := h.subscriptionService.HandleStripeCheckoutSuccess(ctx, eventBody.ID)
+		sub, redirectURL, err := h.subscriptionService.HandleStripeCheckoutSuccess(ctx, eventBody.ID)
 		if err != nil {
 			h.logger.Error("failed to handle stripe checkout success", zap.Error(err))
 			return nil, huma.Error500InternalServerError("Failed to handle stripe checkout success")
 		}
 
 		h.logger.Info("subscription created", zap.Any("subscription", sub))
-
+		resp.RedirectURL = &redirectURL
+		resp.Status = http.StatusPermanentRedirect
 	default:
 		h.logger.Error("unhandled event type", zap.String("eventType", string(event.Type)))
 		return nil, huma.Error501NotImplemented("Unhandled event type")
 	}
 
-	resp := &HandleStripeWebhookOutput{}
-	resp.Status = http.StatusOK
 	return resp, nil
 }
 

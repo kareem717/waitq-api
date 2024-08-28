@@ -9,34 +9,28 @@ import (
 	utils "waitq/api/internal/service/domain/shared"
 	"waitq/api/internal/storage"
 	pgShared "waitq/api/internal/storage/postgres/shared"
-	"waitq/api/pkg/mailer"
 
 	"github.com/golang-jwt/jwt/v5"
 
 	"github.com/google/uuid"
-	"github.com/supabase-community/supabase-go"
 )
 
 type WaitlistService struct {
-	waitlistRepository storage.WaitlistRepository // interface of the repository, not implementation
-	sb                 *supabase.Client
-	mailer             *mailer.Mailer
+	repositories storage.Repository
 }
 
-func NewWaitlistService(waitlistRepository storage.WaitlistRepository, sb *supabase.Client, mailer *mailer.Mailer) *WaitlistService {
+func NewWaitlistService(repositories storage.Repository) *WaitlistService {
 	return &WaitlistService{
-		waitlistRepository: waitlistRepository,
-		sb:                 sb,
-		mailer:             mailer,
+		repositories: repositories,
 	}
 }
 
 func (s *WaitlistService) GetById(ctx context.Context, id uuid.UUID) (waitlist.Waitlist, error) {
-	return s.waitlistRepository.GetById(ctx, id)
+	return s.repositories.Waitlist().GetById(ctx, id)
 }
 
 func (s *WaitlistService) GetByAccountId(ctx context.Context, accountId uuid.UUID, input pgShared.PaginationRequest) ([]waitlist.Waitlist, error) {
-	return s.waitlistRepository.GetByAccountId(ctx, accountId, input)
+	return s.repositories.Waitlist().GetByAccountId(ctx, accountId, input)
 }
 
 func (s *WaitlistService) Create(ctx context.Context, input waitlist.Waitlist) (waitlist.Waitlist, error) {
@@ -56,15 +50,15 @@ func (s *WaitlistService) Create(ctx context.Context, input waitlist.Waitlist) (
 	input.AnonKey = keys.AnonKey
 	input.ServiceKey = keys.ServiceKey
 
-	return s.waitlistRepository.Create(ctx, input)
+	return s.repositories.Waitlist().Create(ctx, input)
 }
 
 func (s *WaitlistService) Delete(ctx context.Context, id uuid.UUID) error {
-	return s.waitlistRepository.Delete(ctx, id)
+	return s.repositories.Waitlist().Delete(ctx, id)
 }
 
 func (s *WaitlistService) Update(ctx context.Context, id uuid.UUID, input waitlist.Waitlist) (waitlist.Waitlist, error) {
-	curr, err := s.waitlistRepository.GetById(ctx, id)
+	curr, err := s.repositories.Waitlist().GetById(ctx, id)
 	if err != nil {
 		return waitlist.Waitlist{}, err
 	}
@@ -77,7 +71,7 @@ func (s *WaitlistService) Update(ctx context.Context, id uuid.UUID, input waitli
 	}
 
 	// Update already omits zero values, thus if input.JWTSecret is empty, it will not be updated
-	return s.waitlistRepository.Update(ctx, id, input)
+	return s.repositories.Waitlist().Update(ctx, id, input)
 }
 
 func (s *WaitlistService) UpdateJWTSecret(ctx context.Context, id uuid.UUID, secret string) (waitlist.Waitlist, error) {
@@ -110,15 +104,15 @@ func (s *WaitlistService) UpdateJWTSecret(ctx context.Context, id uuid.UUID, sec
 	log.Printf("vals_3: %+v", vals)
 
 	// Update already omits zero values, thus if input.JWTSecret is empty, it will not be updated
-	return s.waitlistRepository.Update(ctx, id, vals)
+	return s.repositories.Waitlist().Update(ctx, id, vals)
 }
 
 func (s *WaitlistService) GetActiveWaitlistCountByAccountId(ctx context.Context, accountId uuid.UUID) (int, error) {
-	return s.waitlistRepository.GetActiveWaitlistCountByAccountId(ctx, accountId)
+	return s.repositories.Waitlist().GetActiveWaitlistCountByAccountId(ctx, accountId)
 }
 
 func (s *WaitlistService) GetAnalytics(ctx context.Context, waitlistId uuid.UUID) (waitlist.WaitlistAnalytics, error) {
-	return s.waitlistRepository.GetAnalytics(ctx, waitlistId)
+	return s.repositories.Waitlist().GetAnalytics(ctx, waitlistId)
 }
 
 type Keys struct {
@@ -168,13 +162,13 @@ func generateKeys(secret string, id uuid.UUID) (Keys, error) {
 }
 
 func (s *WaitlistService) IsURLAliasAvailable(ctx context.Context, urlAlias string) (bool, error) {
-	return s.waitlistRepository.IsURLAliasAvailable(ctx, urlAlias)
+	return s.repositories.Waitlist().IsURLAliasAvailable(ctx, urlAlias)
 }
 
 func (s *WaitlistService) GetByURLAlias(ctx context.Context, urlAlias string) (waitlist.Waitlist, error) {
-	return s.waitlistRepository.GetByURLAlias(ctx, urlAlias)
+	return s.repositories.Waitlist().GetByURLAlias(ctx, urlAlias)
 }
 
 func (s *WaitlistService) GetPublicMany(ctx context.Context, input pgShared.CursorPaginationRequest) ([]waitlist.PublicWaitlist, error) {
-	return s.waitlistRepository.GetPublicMany(ctx, input)
+	return s.repositories.Waitlist().GetPublicMany(ctx, input)
 }

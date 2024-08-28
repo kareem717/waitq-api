@@ -4,208 +4,207 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log"
 
-	"waitq/api/internal/entities/account"
 	"waitq/api/internal/entities/subscription"
 	"waitq/api/internal/storage"
 	stripeClient "waitq/api/pkg/stripe"
 
 	"github.com/google/uuid"
 	"github.com/stripe/stripe-go/v79"
-	"go.uber.org/zap"
 )
 
 type subscriptionService struct {
-	subscriptionRepository storage.SubscriptionRepository
-	waitlistRepository     storage.WaitlistRepository
-	accountRepository      storage.AccountRepository
-	stripeClient           *stripeClient.Client
-	logger                 *zap.Logger
+	repo         storage.Repository
+	stripeClient *stripeClient.Client
 }
 
 func NewSubscriptionService(
-	subscriptionRepository storage.SubscriptionRepository,
-	waitlistRepository storage.WaitlistRepository,
-	accountRepository storage.AccountRepository,
+	repo storage.Repository,
 	stripeClient *stripeClient.Client,
-	logger *zap.Logger,
 ) *subscriptionService {
 	return &subscriptionService{
-		subscriptionRepository: subscriptionRepository,
-		waitlistRepository:     waitlistRepository,
-		accountRepository:      accountRepository,
-		stripeClient:           stripeClient,
-		logger:                 logger,
+		repo:         repo,
+		stripeClient: stripeClient,
 	}
 }
 
 func (s *subscriptionService) CreateStripeCheckoutSession(ctx context.Context, priceId string, accountId uuid.UUID, redirectUrl string) (*stripe.CheckoutSession, error) {
-	return s.stripeClient.CreateCheckoutSession(priceId, accountId.String(), redirectUrl)
+	return s.stripeClient.CreateCheckoutSession(priceId, accountId, redirectUrl)
 }
 
 func (s *subscriptionService) CreateStripeBillingPortalSession(ctx context.Context, customerID string, returnURL string) (*stripe.BillingPortalSession, error) {
 	return s.stripeClient.GetBillingPortalURL(customerID, returnURL)
 }
 
-func (s *subscriptionService) HandleStripeCheckoutSuccess(ctx context.Context, sessionId string) (subscription.AccountSubscription, error) {
-	sub := subscription.AccountSubscription{}
+func (s *subscriptionService) HandleStripeCheckoutSuccess(ctx context.Context, sessionId string) (subscription.AccountSubscription, string, error) {
+	log.Printf("sessionId: %v", sessionId)
+	var sub subscription.AccountSubscription
+	var redirectURL string
 
 	session, err := s.stripeClient.GetSession(sessionId)
 	if err != nil {
-		s.logger.Error("failed to get checkout session", zap.Error(err))
-		return sub, err
+		return sub, redirectURL, err
 	}
 
-	customerAccountId := session.Metadata["customer_account_id"]
-	parsedAccountId, err := uuid.Parse(customerAccountId)
-	if err != nil {
-		s.logger.Error("failed to parse account id during checkout success", zap.Error(err))
-		return sub, err
+	redirectURL = session.Metadata[stripeClient.RedirectURLMetadataKey]
+	if redirectURL == "" {
+		return sub, redirectURL, errors.New("redirect url is empty")
 	}
 
-	existingSub, err := s.subscriptionRepository.GetRelationshipByAccountId(ctx, parsedAccountId)
+	accountId, err := uuid.Parse(session.Metadata[stripeClient.AccountIDMetadataKey])
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			s.logger.Info("account does not have a subscription, creating new subscription", zap.String("account_id", parsedAccountId.String()))
-		} else {
-			s.logger.Error("failed to get account subscription", zap.Error(err))
-			return sub, err
+		return sub, redirectURL, err
+	}
+
+	newSub := subscription.AccountSubscription{}
+	err = s.repo.RunInTx(ctx, func(ctx context.Context, uow storage.UnitOfWork) error {
+		log.Printf("accountId: %v", accountId)
+		existingSub, err := uow.Subscription().GetRelationshipByAccountId(ctx, accountId)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return err
 		}
-	}
 
-	if existingSub.StripeSubscriptionID != "" {
-		s.logger.Error("account already has a subscription, need to upgrade instead of create new subscription", zap.String("account_id", parsedAccountId.String()))
-		return sub, errors.New("account already has a subscription, need to upgrade instead of create new subscription")
-	}
+		log.Printf("existingSub: %+v", existingSub)
+		// non empty stripe subscription id means the account already has a subscription
+		if existingSub.StripeSubscriptionID != "" {
+			return errors.New("account already has a subscription, need to upgrade instead of create new subscription")
+		}
 
-	lineItems, err := s.stripeClient.GetSessionLineItemIter(session)
-	if err != nil {
-		s.logger.Error("failed to get session line item iter", zap.Error(err))
-		return sub, err
-	}
+		lineItems, err := s.stripeClient.GetSessionLineItemIter(session)
+		if err != nil {
+			return err
+		}
 
-	item := lineItems.LineItem()
+		item := lineItems.LineItem()
 
-	subRecord, err := s.subscriptionRepository.GetByStripeProductId(ctx, item.Price.Product.ID)
-	if err != nil {
-		s.logger.Error("failed to get subscription record", zap.Error(err))
-		return sub, err
-	}
+		subRecord, err := uow.Subscription().GetByStripeProductId(ctx, item.Price.Product.ID)
+		if err != nil {
+			return err
+		}
 
-	sub = subscription.AccountSubscription{
-		AccountID:            parsedAccountId,
-		SubscriptionID:       subRecord.ID,
-		StripeSubscriptionID: session.Subscription.ID,
-		StripePriceID:        item.Price.ID,
-	}
+		sub = subscription.AccountSubscription{
+			AccountID:            accountId,
+			SubscriptionID:       subRecord.ID,
+			StripeSubscriptionID: session.Subscription.ID,
+			StripePriceID:        item.Price.ID,
+			StripeCustomerID:     session.Customer.ID,
+		}
 
-	newSub, err := s.subscriptionRepository.CreateAccountSubscription(ctx, sub)
-	if err != nil {
-		s.logger.Error("failed to create account subscription", zap.Error(err))
-		return sub, err
-	}
+		log.Printf("sub: %+v", sub)
+		newSub, err = uow.Subscription().CreateAccountSubscription(ctx, sub)
+		if err != nil {
+			return err
+		}
 
-	return newSub, nil
+		log.Printf("new sub: %+v", newSub)
+
+		return nil
+	})
+
+	return newSub, redirectURL, err
 }
 
-func (s *subscriptionService) UpdateAccountSubscription(ctx context.Context, accountId uuid.UUID, newPriceId string) (subscription.AccountSubscription, error) {
-	account, err := s.accountRepository.GetById(ctx, accountId)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			s.logger.Error("account does not have a subscription, cannot update", zap.String("account_id", accountId.String()))
-			return subscription.AccountSubscription{}, err
-		} else {
-			s.logger.Error("failed to get account subscription", zap.Error(err))
-			return subscription.AccountSubscription{}, err
+func (s *subscriptionService) UpdateAccountSubscription(ctx context.Context, sub *stripe.Subscription) (subscription.AccountSubscription, error) {
+	var newSub subscription.AccountSubscription
+
+	err := s.repo.RunInTx(ctx, func(ctx context.Context, uow storage.UnitOfWork) error {
+		accountSub, err := uow.Subscription().GetRelationshipByCustomerId(ctx, sub.Customer.ID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return err
+			} else {
+				return err
+			}
 		}
-	}
 
-	stripeSubIter, err := s.stripeClient.GetCustomerSubscriptions(account.StripeCustomerID)
-	if err != nil {
-		s.logger.Error("failed to get customer subscriptions", zap.Error(err))
-		return subscription.AccountSubscription{}, err
-	}
+		stripeSubIter, err := s.stripeClient.GetCustomerSubscriptions(accountSub.StripeCustomerID)
+		if err != nil {
+			return err
+		}
 
-	if !stripeSubIter.Next() {
-		s.logger.Error("no subscriptions found for customer", zap.String("customer_id", account.StripeCustomerID))
-		return subscription.AccountSubscription{}, err
-	}
+		if !stripeSubIter.Next() {
+			return err
+		}
 
-	stripeSub := stripeSubIter.Subscription()
+		stripeSub := stripeSubIter.Subscription()
 
-	newStripeSub, err := s.stripeClient.UpdateCustomerSubscription(stripeSub.ID, newPriceId)
-	if err != nil {
-		s.logger.Error("faile	d to update customer subscription", zap.Error(err))
-		return subscription.AccountSubscription{}, err
-	}
+		newStripeSub, err := s.stripeClient.UpdateCustomerSubscription(stripeSub.ID, sub.Items.Data[0].Price.ID)
+		if err != nil {
+			return err
+		}
 
-	price := newStripeSub.Items.Data[0].Price
+		price := newStripeSub.Items.Data[0].Price
 
-	newSub, err := s.subscriptionRepository.GetByStripeProductId(ctx, price.Product.ID)
-	if err != nil {
-		s.logger.Error("failed to create account subscription", zap.Error(err))
-	}
+		dbSub, err := uow.Subscription().GetByStripeProductId(ctx, price.Product.ID)
+		if err != nil {
+			return err
+		}
 
-	newAccSub, err := s.subscriptionRepository.UpdateAccountSubscription(ctx, accountId, newSub.ID, price.ID)
-	if err != nil {
-		s.logger.Error("failed to create account subscription", zap.Error(err))
-	}
+		newSub, err = uow.Subscription().UpdateAccountSubscription(ctx, accountSub.AccountID, dbSub.ID, price.ID)
+		if err != nil {
+			return err
+		}
 
-	return newAccSub, err
+		if err := uow.Commit(); err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	return newSub, err
 }
 
 func (s *subscriptionService) GetAccountSubscriptionRelationship(ctx context.Context, accountId uuid.UUID) (subscription.AccountSubscription, error) {
-	return s.subscriptionRepository.GetRelationshipByAccountId(ctx, accountId)
+	return s.repo.Subscription().GetRelationshipByAccountId(ctx, accountId)
 }
 
 func (s *subscriptionService) GetAccountSubscription(ctx context.Context, accountId uuid.UUID) (subscription.Subscription, error) {
-	return s.subscriptionRepository.GetByAccountId(ctx, accountId)
+	return s.repo.Subscription().GetByAccountId(ctx, accountId)
 }
 
 func (s *subscriptionService) CancelAccountSubscription(ctx context.Context, accountId uuid.UUID) error {
-	existingSub, err := s.subscriptionRepository.GetRelationshipByAccountId(ctx, accountId)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			s.logger.Error("account does not have a subscription to cancel", zap.String("account_id", accountId.String()))
-			return err
-		} else {
-			s.logger.Error("failed to get account subscription", zap.Error(err))
+	return s.repo.RunInTx(ctx, func(ctx context.Context, uow storage.UnitOfWork) error {
+		// Do this here because idk how to undo the stripe call if it fails
+		err := uow.Subscription().DeleteRelationship(ctx, accountId)
+		if err != nil {
 			return err
 		}
-	}
 
-	_, err = s.stripeClient.CancelSubscription(existingSub.StripeSubscriptionID)
-	if err != nil {
-		s.logger.Error("failed to cancel subscription", zap.Error(err))
-		return err
-	}
+		existingSub, err := uow.Subscription().GetRelationshipByAccountId(ctx, accountId)
+		if err != nil {
+			return err
+		}
 
-	// Optionally, update your local subscription record to reflect the cancellation
-	err = s.subscriptionRepository.DeleteRelationship(ctx, accountId)
-	if err != nil {
-		s.logger.Error("failed to delete account subscription relationship", zap.Error(err))
-		return err
-	}
+		_, err = s.stripeClient.CancelSubscription(existingSub.StripeSubscriptionID)
+		if err != nil {
+			return err
+		}
 
-	return nil
+		if err := uow.Commit(); err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
 func (s *subscriptionService) GetSubscriptionByWaitlistId(ctx context.Context, waitlistId uuid.UUID) (subscription.Subscription, error) {
-	waitlist, err := s.waitlistRepository.GetById(ctx, waitlistId)
+	waitlist, err := s.repo.Waitlist().GetById(ctx, waitlistId)
 	if err != nil {
 		return subscription.Subscription{}, err
 	}
 
-	sub, err := s.subscriptionRepository.GetByAccountId(ctx, waitlist.AccountID)
+	return s.repo.Subscription().GetByAccountId(ctx, waitlist.AccountID)
 
-	return sub, nil
 }
 
-func (s *subscriptionService) GetAccountByCustomerId(ctx context.Context, customerId string) (account.Account, error) {
-	return s.accountRepository.GetAccountByCustomerId(ctx, customerId)
-}
+func (s *subscriptionService) DeleteAccountSubscription(ctx context.Context, subscription *stripe.Subscription) error {
+	accountSub, err := s.repo.Subscription().GetRelationshipByCustomerId(ctx, subscription.Customer.ID)
+	if err != nil {
+		return err
+	}
 
-func (s *subscriptionService) DeleteAccountSubscriptionRelationship(ctx context.Context, accountId uuid.UUID) error {
-	return s.subscriptionRepository.DeleteRelationship(ctx, accountId)
+	return s.repo.Subscription().DeleteRelationship(ctx, accountSub.AccountID)
 }
-

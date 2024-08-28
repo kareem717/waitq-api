@@ -11,7 +11,7 @@ import (
 )
 
 func (s *WaitlistService) AddEmail(ctx context.Context, waitlistId uuid.UUID, email string) (waitlist.Email, error) {
-	emails, err := s.waitlistRepository.AddEmails(ctx, []waitlist.Email{{WaitlistID: waitlistId, Email: email}})
+	emails, err := s.repositories.Waitlist().AddEmails(ctx, []waitlist.Email{{WaitlistID: waitlistId, Email: email}})
 	if err != nil {
 		return waitlist.Email{}, err
 	}
@@ -20,30 +20,30 @@ func (s *WaitlistService) AddEmail(ctx context.Context, waitlistId uuid.UUID, em
 }
 
 func (s *WaitlistService) GetEmailsByWaitlistID(ctx context.Context, waitlistId uuid.UUID, input shared.EmailPaginationRequest) ([]waitlist.Email, error) {
-	return s.waitlistRepository.GetEmailsByWaitlistID(ctx, waitlistId, input)
+	return s.repositories.Waitlist().GetEmailsByWaitlistID(ctx, waitlistId, input)
 }
 
 func (s *WaitlistService) DeleteEmail(ctx context.Context, waitlistId uuid.UUID, email string) error {
-	return s.waitlistRepository.DeleteEmail(ctx, waitlistId, email)
+	return s.repositories.Waitlist().DeleteEmail(ctx, waitlistId, email)
 }
 
 func (s *WaitlistService) UpdateEmail(ctx context.Context, email waitlist.Email) (waitlist.Email, error) {
-	return s.waitlistRepository.UpdateEmail(ctx, email)
+	return s.repositories.Waitlist().UpdateEmail(ctx, email)
 }
 
 func (s *WaitlistService) UnsubscribeEmail(ctx context.Context, waitlistId uuid.UUID, email string) (waitlist.Email, error) {
-	return s.waitlistRepository.UnsubscribeEmail(ctx, waitlistId, email)
+	return s.repositories.Waitlist().UnsubscribeEmail(ctx, waitlistId, email)
 }
 
 func (s *WaitlistService) GetEmailsByWaitlistIDAndEmail(ctx context.Context, waitlistId uuid.UUID, email string) (waitlist.Email, error) {
-	return s.waitlistRepository.GetEmailsByWaitlistIDAndEmail(ctx, waitlistId, email)
+	return s.repositories.Waitlist().GetEmailsByWaitlistIDAndEmail(ctx, waitlistId, email)
 }
 
 func (s *WaitlistService) ExportEmails(ctx context.Context, waitlistId uuid.UUID) (chan string, chan error) {
 	emailsChan := make(chan string, 100) // Buffered channel with size 1
 	errChan := make(chan error, 1)       // Buffered channel with size 1
 
-	emailCount, err := s.waitlistRepository.GetEmailCountByWaitlistID(ctx, waitlistId, false, false)
+	emailCount, err := s.repositories.Waitlist().GetEmailCountByWaitlistID(ctx, waitlistId, false, false)
 	if err != nil {
 		errChan <- err
 		close(errChan)
@@ -81,5 +81,5 @@ func (s *WaitlistService) ExportEmails(ctx context.Context, waitlistId uuid.UUID
 }
 
 func (s *WaitlistService) GetActiveEmailCountByWaitlistId(ctx context.Context, waitlistId uuid.UUID) (int, error) {
-	return s.waitlistRepository.GetEmailCountByWaitlistID(ctx, waitlistId, false, false)
+	return s.repositories.Waitlist().GetEmailCountByWaitlistID(ctx, waitlistId, false, false)
 }

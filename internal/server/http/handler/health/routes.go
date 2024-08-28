@@ -3,17 +3,16 @@ package health
 import (
 	"net/http"
 
-	"waitq/api/internal/service"
-
 	"github.com/danielgtaylor/huma/v2"
+	"go.uber.org/zap"
 )
 
 func RegisterHumaRoutes(
 	humaApi huma.API,
-	services *service.Service,
+	logger *zap.Logger,
 ) {
 	handler := &httpHandler{
-		logger: services.Logger,
+		logger: logger,
 	}
 
 	huma.Register(humaApi, huma.Operation{

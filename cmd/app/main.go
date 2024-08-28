@@ -8,17 +8,14 @@ import (
 
 	"github.com/danielgtaylor/huma/v2/humacli"
 	"github.com/joho/godotenv"
-	"github.com/resend/resend-go/v2"
+	"github.com/supabase-community/supabase-go"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	httpServer "waitq/api/internal/server/http"
+	"waitq/api/internal/server/http"
 	"waitq/api/internal/service/domain"
 	"waitq/api/internal/storage/postgres"
-	"waitq/api/pkg/mailer"
 	"waitq/api/pkg/stripe"
-
-	supabase "github.com/supabase-community/supabase-go"
 )
 
 type Options struct {
@@ -68,20 +65,29 @@ func main() {
 				zapcore.NewJSONEncoder(zap.NewProductionConfig().EncoderConfig),
 				zapcore.AddSync(os.Stdout), zap.InfoLevel))
 
-		sb, err := supabase.NewClient(options.SupabaseHost, options.SupabaseServiceKey, &supabase.ClientOptions{})
-		if err != nil {
-			logger.Fatal("Failed to create Supabase client", zap.Error(err))
-		}
-
-		resendClient := resend.NewClient(options.ResendAPIKey)
-		mailer := mailer.NewMailer(resendClient)
 		stripeClient := stripe.NewClient(options.StripeAPIKey)
 
 		postgresConfig := postgres.NewConfig(options.DatabaseURL)
 		repositories := postgres.NewRepository(postgresConfig, ctx, logger)
-		services := domain.NewService(repositories, logger, sb, mailer, stripeClient, options.StripeWebhookSecret)
+		services := domain.NewService(repositories, stripeClient)
 
-		server := httpServer.NewServer(services, options.ApiName, options.ApiVersion)
+		supabaseClient, err := supabase.NewClient(
+			options.SupabaseHost,
+			options.SupabaseServiceKey,
+			&supabase.ClientOptions{},
+		)
+		if err != nil {
+			logger.Fatal("Failed to create supabase client", zap.Error(err))
+		}
+
+		server := http.NewServer(
+			services,
+			options.ApiName,
+			options.ApiVersion,
+			logger,
+			supabaseClient,
+			options.StripeWebhookSecret,
+		)
 
 		hooks.OnStart(func() {
 			fmt.Printf("Starting server on port %d...\n", options.Port)

@@ -3,11 +3,12 @@ package stripe
 import (
 	"errors"
 
+	"github.com/google/uuid"
 	"github.com/stripe/stripe-go/v79"
 	billingsession "github.com/stripe/stripe-go/v79/billingportal/session"
 	"github.com/stripe/stripe-go/v79/checkout/session"
-	"github.com/stripe/stripe-go/v79/subscription"
 	"github.com/stripe/stripe-go/v79/customer"
+	"github.com/stripe/stripe-go/v79/subscription"
 )
 
 type Client struct {
@@ -18,13 +19,15 @@ func NewClient(stripeAPIKey string) *Client {
 	return &Client{StripeAPIKey: stripeAPIKey}
 }
 
-func (c *Client) CreateCheckoutSession(priceID string, customerAccountId string, redirectUrl string) (*stripe.CheckoutSession, error) {
+const (
+	RedirectURLMetadataKey = "redirectUrl"
+	AccountIDMetadataKey   = "accountId"
+)
+
+func (c *Client) CreateCheckoutSession(priceID string, accountId uuid.UUID, redirectUrl string) (*stripe.CheckoutSession, error) {
 	stripe.Key = c.StripeAPIKey
 	checkoutParams := &stripe.CheckoutSessionParams{
 		SuccessURL: stripe.String(redirectUrl),
-		Metadata: map[string]string{
-			"customer_account_id": customerAccountId,
-		},
 		LineItems: []*stripe.CheckoutSessionLineItemParams{
 			{
 				Price:    stripe.String(priceID),
@@ -32,11 +35,14 @@ func (c *Client) CreateCheckoutSession(priceID string, customerAccountId string,
 			},
 		},
 		Mode: stripe.String(string(stripe.CheckoutSessionModeSubscription)),
+		Metadata: map[string]string{
+			RedirectURLMetadataKey: redirectUrl,
+			AccountIDMetadataKey:   accountId.String(),
+		},
 	}
 
 	s, err := session.New(checkoutParams)
 	return s, err
-
 }
 
 func (c *Client) GetSession(sessionID string) (*stripe.CheckoutSession, error) {

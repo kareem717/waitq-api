@@ -22,5 +22,8 @@ RUN go build -o bin/waitq/api cmd/app/main.go
 # Expose port 3000 to the outside world
 EXPOSE 3000
 
+# Export all environment variables to a .env.local file
+RUN printenv > .env.local
+
 # Command to run the executable
 CMD ["./bin/waitq/api"]

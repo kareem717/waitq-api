@@ -7,17 +7,21 @@ import (
 	"waitq/api/internal/server/http/middleware"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/supabase-community/supabase-go"
+	"go.uber.org/zap"
 )
 
 func RegisterHumaRoutes(
 	service *service.Service,
+	logger *zap.Logger,
 	humaApi huma.API,
 	stripeWebhookSecret string,
+	supabaseClient *supabase.Client,
 ) {
 
 	handler := &httpHandler{
 		subscriptionService: service.SubscriptionService,
-		logger:              service.Logger,
+		logger:              logger,
 		stripeWebhookSecret: stripeWebhookSecret,
 	}
 
@@ -33,21 +37,22 @@ func RegisterHumaRoutes(
 		},
 		Middlewares: huma.Middlewares{
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithUser(humaApi)(ctx, next, service)
+				middleware.WithUser(humaApi)(ctx, next, logger, supabaseClient)
 			},
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithAccount(humaApi)(ctx, next, service)
+				middleware.WithAccount(humaApi)(ctx, next, logger, service)
 			},
 		},
 	}, handler.getStripeCheckoutLink)
 
 	huma.Register(humaApi, huma.Operation{
-		OperationID: "handle-stripe-webhook",
-		Method:      http.MethodPost,
-		Path:        "/subscriptions/webhook",
-		Summary:     "Handle a stripe webhook",
-		Description: "Handle a stripe webhook.",
-		Tags:        []string{"Subscriptions"},
+		OperationID:  "handle-stripe-webhook",
+		Method:       http.MethodPost,
+		Path:         "/subscriptions/webhook",
+		Summary:      "Handle a stripe webhook",
+		Description:  "Handle a stripe webhook.",
+		Tags:         []string{"Subscriptions"},
+		MaxBodyBytes: 64 * 1024,
 	}, handler.handleStripeWebhook)
 
 	huma.Register(humaApi, huma.Operation{
@@ -62,10 +67,10 @@ func RegisterHumaRoutes(
 		},
 		Middlewares: huma.Middlewares{
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithUser(humaApi)(ctx, next, service)
+				middleware.WithUser(humaApi)(ctx, next, logger, supabaseClient)
 			},
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithAccount(humaApi)(ctx, next, service)
+				middleware.WithAccount(humaApi)(ctx, next, logger, service)
 			},
 		},
 	}, handler.getStripeBillingPortalLink)
@@ -82,10 +87,10 @@ func RegisterHumaRoutes(
 		},
 		Middlewares: huma.Middlewares{
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithUser(humaApi)(ctx, next, service)
+				middleware.WithUser(humaApi)(ctx, next, logger, supabaseClient)
 			},
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithAccount(humaApi)(ctx, next, service)
+				middleware.WithAccount(humaApi)(ctx, next, logger, service)
 			},
 		},
 	}, handler.getStripeCheckoutLink)
@@ -102,10 +107,10 @@ func RegisterHumaRoutes(
 		},
 		Middlewares: huma.Middlewares{
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithUser(humaApi)(ctx, next, service)
+				middleware.WithUser(humaApi)(ctx, next, logger, supabaseClient)
 			},
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithAccount(humaApi)(ctx, next, service)
+				middleware.WithAccount(humaApi)(ctx, next, logger, service)
 			},
 		},
 	}, handler.getAccountSubscription)

@@ -30,20 +30,29 @@ func (s *Server) routes() chi.Router {
 	account.RegisterHumaRoutes(
 		s.services,
 		humaApi,
+		s.logger,
+		s.supabaseClient,
 	)
 
 	waitlist.RegisterHumaRoutes(
 		s.services,
 		humaApi,
+		s.logger,
+		s.supabaseClient,
 	)
 
 	subscription.RegisterHumaRoutes(
 		s.services,
+		s.logger,
 		humaApi,
-		s.services.StripeWebhookSecret,
+		s.stripeWebhookSecret,
+		s.supabaseClient,
 	)
 
-	health.RegisterHumaRoutes(humaApi, s.services)
+	health.RegisterHumaRoutes(
+		humaApi,
+		s.logger,
+	)
 
 	return router
 }

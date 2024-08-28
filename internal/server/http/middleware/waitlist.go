@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strings"
 	"waitq/api/internal/server/http/handler/shared"
-	"waitq/api/internal/service"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/golang-jwt/jwt/v5"
@@ -13,8 +12,8 @@ import (
 	"go.uber.org/zap"
 )
 
-func WithWaitlistServiceKey(api huma.API) func(ctx huma.Context, next func(huma.Context), sv *service.Service) {
-	return func(ctx huma.Context, next func(huma.Context), sv *service.Service) {
+func WithWaitlistServiceKey(api huma.API) func(ctx huma.Context, next func(huma.Context), logger *zap.Logger) {
+	return func(ctx huma.Context, next func(huma.Context), logger *zap.Logger) {
 		authHeader := ctx.Header("Authorization")
 		if authHeader == "" {
 			huma.WriteErr(api, ctx, http.StatusUnauthorized,
@@ -39,7 +38,7 @@ func WithWaitlistServiceKey(api huma.API) func(ctx huma.Context, next func(huma.
 			return
 		}
 
-		waitlistKey, err := parseTokenClaims(token, sv.Logger)
+		waitlistKey, err := parseTokenClaims(token, logger)
 		if err != nil {
 			huma.WriteErr(api, ctx, http.StatusUnauthorized,
 				err.Error(),
@@ -49,7 +48,7 @@ func WithWaitlistServiceKey(api huma.API) func(ctx huma.Context, next func(huma.
 		}
 
 		if waitlistKey.Role != shared.WaitlistServiceKey {
-			sv.Logger.Error("Invalid access token", zap.Any("waitlistKey", waitlistKey))
+			logger.Error("Invalid access token", zap.Any("waitlistKey", waitlistKey))
 			huma.WriteErr(api, ctx, http.StatusUnauthorized,
 				"An invalid access token was provided",
 			)
@@ -60,8 +59,8 @@ func WithWaitlistServiceKey(api huma.API) func(ctx huma.Context, next func(huma.
 	}
 }
 
-func WithWaitlistAnonKey(api huma.API) func(ctx huma.Context, next func(huma.Context), sv *service.Service) {
-	return func(ctx huma.Context, next func(huma.Context), sv *service.Service) {
+func WithWaitlistAnonKey(api huma.API) func(ctx huma.Context, next func(huma.Context), logger *zap.Logger) {
+	return func(ctx huma.Context, next func(huma.Context), logger *zap.Logger) {
 		authHeader := ctx.Header("Authorization")
 		if authHeader == "" {
 			huma.WriteErr(api, ctx, http.StatusUnauthorized,
@@ -86,7 +85,7 @@ func WithWaitlistAnonKey(api huma.API) func(ctx huma.Context, next func(huma.Con
 			return
 		}
 
-		waitlistKey, err := parseTokenClaims(token, sv.Logger)
+		waitlistKey, err := parseTokenClaims(token, logger)
 		if err != nil {
 			huma.WriteErr(api, ctx, http.StatusUnauthorized,
 				err.Error(),
@@ -95,7 +94,7 @@ func WithWaitlistAnonKey(api huma.API) func(ctx huma.Context, next func(huma.Con
 		}
 
 		if waitlistKey.Role != shared.WaitlistAnonKey {
-			sv.Logger.Error("Invalid access token", zap.Any("waitlistKey", waitlistKey))
+			logger.Error("Invalid access token", zap.Any("waitlistKey", waitlistKey))
 			huma.WriteErr(api, ctx, http.StatusUnauthorized,
 				"An invalid access token was provided",
 			)

@@ -20,6 +20,18 @@ func NewSubscriptionRepository(db bun.IDB, ctx context.Context) *SubscriptionRep
 	}
 }
 
+func (q *SubscriptionRepository) WithTransaction(tx bun.Tx) *SubscriptionRepository {
+	return &SubscriptionRepository{db: tx, ctx: q.ctx}
+}
+
+func (q *SubscriptionRepository) BeginTx() (bun.Tx, error) {
+	return q.db.BeginTx(q.ctx, nil)
+}
+
+func (q *SubscriptionRepository) RunInTx(fn func(ctx context.Context, tx bun.Tx) error) error {
+	return q.db.RunInTx(q.ctx, nil, fn)
+}
+
 func (r *SubscriptionRepository) CreateAccountSubscription(ctx context.Context, sub subscription.AccountSubscription) (subscription.AccountSubscription, error) {
 	resp := subscription.AccountSubscription{}
 
@@ -105,3 +117,15 @@ func (r *SubscriptionRepository) DeleteRelationship(ctx context.Context, account
 	return err
 }
 
+func (r *SubscriptionRepository) GetRelationshipByCustomerId(ctx context.Context, customerId string) (subscription.AccountSubscription, error) {
+	resp := subscription.AccountSubscription{}
+
+	err := r.db.
+		NewSelect().
+		Model(&resp).
+		Where("stripe_customer_id = ?", customerId).
+		Where("deleted_at IS NULL").
+		Scan(ctx, &resp)
+
+	return resp, err
+}

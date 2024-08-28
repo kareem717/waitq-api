@@ -7,16 +7,20 @@ import (
 	"waitq/api/internal/server/http/middleware"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/supabase-community/supabase-go"
+	"go.uber.org/zap"
 )
 
 func RegisterHumaRoutes(
 	service *service.Service,
 	humaApi huma.API,
+	logger *zap.Logger,
+	supabaseClient *supabase.Client,
 ) {
 	handler := &httpHandler{
 		waitlistService:     service.WaitlistService,
 		subscriptionService: service.SubscriptionService,
-		logger:              service.Logger,
+		logger:              logger,
 	}
 
 	huma.Register(humaApi, huma.Operation{
@@ -31,7 +35,7 @@ func RegisterHumaRoutes(
 		},
 		Middlewares: huma.Middlewares{
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithWaitlistServiceKey(humaApi)(ctx, next, service)
+				middleware.WithWaitlistServiceKey(humaApi)(ctx, next, logger)
 			},
 		},
 	}, handler.getByID)
@@ -48,10 +52,10 @@ func RegisterHumaRoutes(
 		},
 		Middlewares: huma.Middlewares{
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithUser(humaApi)(ctx, next, service)
+				middleware.WithUser(humaApi)(ctx, next, logger, supabaseClient)
 			},
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithAccount(humaApi)(ctx, next, service)
+				middleware.WithAccount(humaApi)(ctx, next, logger, service)
 			},
 		},
 	}, handler.getApiKeys)
@@ -68,10 +72,10 @@ func RegisterHumaRoutes(
 		},
 		Middlewares: huma.Middlewares{
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithUser(humaApi)(ctx, next, service)
+				middleware.WithUser(humaApi)(ctx, next, logger, supabaseClient)
 			},
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithAccount(humaApi)(ctx, next, service)
+				middleware.WithAccount(humaApi)(ctx, next, logger, service)
 			},
 		},
 	}, handler.getByAccountID)
@@ -88,10 +92,10 @@ func RegisterHumaRoutes(
 		},
 		Middlewares: huma.Middlewares{
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithUser(humaApi)(ctx, next, service)
+				middleware.WithUser(humaApi)(ctx, next, logger, supabaseClient)
 			},
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithAccount(humaApi)(ctx, next, service)
+				middleware.WithAccount(humaApi)(ctx, next, logger, service)
 			},
 		},
 	}, handler.create)
@@ -108,7 +112,7 @@ func RegisterHumaRoutes(
 		},
 		Middlewares: huma.Middlewares{
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithWaitlistServiceKey(humaApi)(ctx, next, service)
+				middleware.WithWaitlistServiceKey(humaApi)(ctx, next, logger)
 			},
 		},
 	}, handler.update)
@@ -125,7 +129,7 @@ func RegisterHumaRoutes(
 		},
 		Middlewares: huma.Middlewares{
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithWaitlistServiceKey(humaApi)(ctx, next, service)
+				middleware.WithWaitlistServiceKey(humaApi)(ctx, next, logger)
 			},
 		},
 	}, handler.updateJWTSecret)
@@ -142,7 +146,7 @@ func RegisterHumaRoutes(
 		},
 		Middlewares: huma.Middlewares{
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithWaitlistServiceKey(humaApi)(ctx, next, service)
+				middleware.WithWaitlistServiceKey(humaApi)(ctx, next, logger)
 			},
 		},
 	}, handler.delete)
@@ -186,7 +190,7 @@ func RegisterHumaRoutes(
 		},
 		Middlewares: huma.Middlewares{
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithWaitlistServiceKey(humaApi)(ctx, next, service)
+				middleware.WithWaitlistServiceKey(humaApi)(ctx, next, logger)
 			},
 		},
 	}, handler.deleteEmail)
@@ -203,7 +207,7 @@ func RegisterHumaRoutes(
 		},
 		Middlewares: huma.Middlewares{
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithWaitlistServiceKey(humaApi)(ctx, next, service)
+				middleware.WithWaitlistServiceKey(humaApi)(ctx, next, logger)
 			},
 		},
 	}, handler.getEmailsByWaitlistID)
@@ -220,7 +224,7 @@ func RegisterHumaRoutes(
 		},
 		Middlewares: huma.Middlewares{
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithWaitlistServiceKey(humaApi)(ctx, next, service)
+				middleware.WithWaitlistServiceKey(humaApi)(ctx, next, logger)
 			},
 		},
 	}, handler.getWaitlistAnalytics)
@@ -237,10 +241,10 @@ func RegisterHumaRoutes(
 		},
 		Middlewares: huma.Middlewares{
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithWaitlistServiceKey(humaApi)(ctx, next, service)
+				middleware.WithWaitlistServiceKey(humaApi)(ctx, next, logger)
 			},
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithWaitlistOwnerSubscription(humaApi)(ctx, next, service)
+				middleware.WithWaitlistOwnerSubscription(humaApi)(ctx, next, logger, service)
 			},
 		},
 	}, handler.exportEmailsToCSV)
@@ -257,10 +261,10 @@ func RegisterHumaRoutes(
 		},
 		Middlewares: huma.Middlewares{
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithUser(humaApi)(ctx, next, service)
+				middleware.WithUser(humaApi)(ctx, next, logger, supabaseClient)
 			},
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithAccount(humaApi)(ctx, next, service)
+				middleware.WithAccount(humaApi)(ctx, next, logger, service)
 			},
 		},
 	}, handler.urlAliasAvailable)

@@ -9,11 +9,12 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
+	"github.com/supabase-community/supabase-go"
 	"go.uber.org/zap"
 )
 
-func WithUser(api huma.API) func(ctx huma.Context, next func(huma.Context), sv *service.Service) {
-	return func(ctx huma.Context, next func(huma.Context), sv *service.Service) {
+func WithUser(api huma.API) func(ctx huma.Context, next func(huma.Context), logger *zap.Logger, supabaseClient *supabase.Client) {
+	return func(ctx huma.Context, next func(huma.Context), logger *zap.Logger, supabaseClient *supabase.Client) {
 		authHeader := ctx.Header("Authorization")
 		if authHeader == "" {
 			huma.WriteErr(api, ctx, http.StatusUnauthorized,
@@ -30,11 +31,11 @@ func WithUser(api huma.API) func(ctx huma.Context, next func(huma.Context), sv *
 			return
 		}
 
-		authedClient := sv.SupabaseClient.Auth.WithToken(accessToken)
+		authedClient := supabaseClient.Auth.WithToken(accessToken)
 
 		resp, err := authedClient.GetUser()
 		if err != nil {
-			sv.Logger.Error("Error getting user", zap.Error(err))
+			logger.Error("Error getting user", zap.Error(err))
 			huma.WriteErr(api, ctx, http.StatusUnauthorized,
 				"An invalid access token was provided",
 			)
@@ -45,8 +46,8 @@ func WithUser(api huma.API) func(ctx huma.Context, next func(huma.Context), sv *
 	}
 }
 
-func WithAccount(api huma.API) func(ctx huma.Context, next func(huma.Context), sv *service.Service) {
-	return func(ctx huma.Context, next func(huma.Context), sv *service.Service) {
+func WithAccount(api huma.API) func(ctx huma.Context, next func(huma.Context), logger *zap.Logger, sv *service.Service) {
+	return func(ctx huma.Context, next func(huma.Context), logger *zap.Logger, sv *service.Service) {
 		user := shared.GetAuthenticatedUser(ctx.Context())
 		if user.ID == uuid.Nil {
 			huma.WriteErr(api, ctx, http.StatusUnauthorized,
@@ -59,7 +60,7 @@ func WithAccount(api huma.API) func(ctx huma.Context, next func(huma.Context), s
 			IncludeDeleted: false,
 		})
 		if err != nil {
-			sv.Logger.Error("Error getting account", zap.Error(err))
+			logger.Error("Error getting account", zap.Error(err))
 			huma.WriteErr(api, ctx, http.StatusInternalServerError,
 				"Something went wrong",
 			)
@@ -68,13 +69,13 @@ func WithAccount(api huma.API) func(ctx huma.Context, next func(huma.Context), s
 
 		// There should only be one non-deleted account per user
 		if len(queryResp) == 0 {
-			sv.Logger.Error("User has no accounts", zap.Any("user", user))
+			logger.Error("User has no accounts", zap.Any("user", user))
 			huma.WriteErr(api, ctx, http.StatusForbidden,
 				"User does not have an account",
 			)
 			return
 		} else if len(queryResp) > 1 {
-			sv.Logger.Error("User has multiple accounts", zap.Any("user", user), zap.Any("accounts", queryResp))
+			logger.Error("User has multiple accounts", zap.Any("user", user), zap.Any("accounts", queryResp))
 			huma.WriteErr(api, ctx, http.StatusInternalServerError,
 				"Something went wrong",
 			)

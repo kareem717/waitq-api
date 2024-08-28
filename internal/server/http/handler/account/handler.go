@@ -81,6 +81,7 @@ type GetAccountByUserIDOutput struct {
 }
 
 func (h *httpHandler) getByUserID(ctx context.Context, input *GetAccountByUserIDInput) (*GetAccountByUserIDOutput, error) {
+	h.logger.Info("getByUserID")
 	userID, err := uuid.Parse(input.UserID) // fetching and validation input
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid account ID")

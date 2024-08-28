@@ -16,7 +16,6 @@ type AccountRepository interface {
 	Update(ctx context.Context, id uuid.UUID, input account.Account) (account.Account, error)
 	GetByUserId(ctx context.Context, userId uuid.UUID, input shared.GetManyRequest) ([]account.Account, error)
 	GetById(ctx context.Context, id uuid.UUID) (account.Account, error)
-	GetAccountByCustomerId(ctx context.Context, customerId string) (account.Account, error)
 }
 
 type WaitlistRepository interface {
@@ -44,12 +43,26 @@ type SubscriptionRepository interface {
 	GetRelationshipByAccountId(ctx context.Context, accountId uuid.UUID) (subscription.AccountSubscription, error)
 	GetByAccountId(ctx context.Context, accountId uuid.UUID) (subscription.Subscription, error)
 	GetByStripeProductId(ctx context.Context, stripeProductId string) (subscription.Subscription, error)
+	GetRelationshipByCustomerId(ctx context.Context, customerId string) (subscription.AccountSubscription, error)
 	DeleteRelationship(ctx context.Context, accountId uuid.UUID) error
 	UpdateAccountSubscription(ctx context.Context, accountId uuid.UUID, newSubscriptionId uuid.UUID, newPriceId string) (subscription.AccountSubscription, error)
 }
 
-type Repository struct {
-	Account      AccountRepository
-	Waitlist     WaitlistRepository
-	Subscription SubscriptionRepository
+type RepositoryProvider interface {
+	Account() AccountRepository
+	Waitlist() WaitlistRepository
+	Subscription() SubscriptionRepository
+}
+
+type UnitOfWork interface {
+	RepositoryProvider
+	Commit() error
+	Rollback() error
+}
+
+type Repository interface {
+	RepositoryProvider
+	HealthCheck(ctx context.Context) error
+	NewUnitOfWork() (UnitOfWork, error)
+	RunInTx(ctx context.Context, fn func(ctx context.Context, uow UnitOfWork) error) error
 }

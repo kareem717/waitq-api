@@ -15,5 +15,6 @@ type AccountSubscription struct {
 	SubscriptionID       uuid.UUID `json:"subscriptionId"`
 	StripeSubscriptionID string    `json:"stripeSubscriptionID"`
 	StripePriceID        string    `json:"stripePriceID"`
+	StripeCustomerID     string    `json:"stripeCustomerID"`
 	shared.Timestamps
 }
