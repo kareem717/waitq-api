@@ -18,9 +18,9 @@ func RegisterHumaRoutes(
 	supabaseClient *supabase.Client,
 ) {
 	handler := &httpHandler{
-		waitlistService:     service.WaitlistService,
-		subscriptionService: service.SubscriptionService,
-		logger:              logger,
+		waitlistService: service.WaitlistService,
+		billingService:  service.BillingService,
+		logger:          logger,
 	}
 
 	huma.Register(humaApi, huma.Operation{
@@ -244,7 +244,7 @@ func RegisterHumaRoutes(
 				middleware.WithWaitlistServiceKey(humaApi)(ctx, next, logger)
 			},
 			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithWaitlistOwnerSubscription(humaApi)(ctx, next, logger, service)
+				middleware.WithWaitlistOwnerBilling(humaApi)(ctx, next, logger, service)
 			},
 		},
 	}, handler.exportEmailsToCSV)

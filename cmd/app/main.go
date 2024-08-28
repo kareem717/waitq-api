@@ -19,17 +19,17 @@ import (
 )
 
 type Options struct {
-	Port                           int    `help:"Port to listen on" short:"p" default:"8080"`
-	DatabaseURL                    string `help:"Database URL" short:"d"`
-	SupabaseHost                   string `help:"Supabase Host" short:"s"`
-	SupabaseServiceKey             string `help:"Supabase Service Key" short:"k"`
-	ApiName                        string `help:"API Name" short:"n"`
-	ApiVersion                     string `help:"API Version" short:"v"`
-	ResendAPIKey                   string `help:"Resend API Key" short:"r"`
-	StripeAPIKey                   string `help:"Stripe API Key" short:"S"`
-	StripeSubscriptionCallbackPath string `help:"Stripe Subscription Callback Path" short:"C"`
-	BaseAPIURL                     string `help:"Base API URL" short:"B"`
-	StripeWebhookSecret            string `help:"Stripe Webhook Secret" short:"W"`
+	Port                      int    `help:"Port to listen on" short:"p" default:"8080"`
+	DatabaseURL               string `help:"Database URL" short:"d"`
+	SupabaseHost              string `help:"Supabase Host" short:"s"`
+	SupabaseServiceKey        string `help:"Supabase Service Key" short:"k"`
+	ApiName                   string `help:"API Name" short:"n"`
+	ApiVersion                string `help:"API Version" short:"v"`
+	ResendAPIKey              string `help:"Resend API Key" short:"r"`
+	StripeAPIKey              string `help:"Stripe API Key" short:"S"`
+	StripeBillingCallbackPath string `help:"Stripe Billing Callback Path" short:"C"`
+	BaseAPIURL                string `help:"Base API URL" short:"B"`
+	StripeWebhookSecret       string `help:"Stripe Webhook Secret" short:"W"`
 }
 
 func (o *Options) config() {
@@ -45,7 +45,7 @@ func (o *Options) config() {
 	o.ResendAPIKey = os.Getenv("RESEND_API_KEY")
 	o.StripeAPIKey = os.Getenv("STRIPE_API_KEY")
 	o.BaseAPIURL = os.Getenv("BASE_API_URL")
-	o.StripeSubscriptionCallbackPath = os.Getenv("STRIPE_SUBSCRIPTION_CALLBACK_PATH")
+	o.StripeBillingCallbackPath = os.Getenv("STRIPE_BILLING_CALLBACK_PATH")
 	o.StripeWebhookSecret = os.Getenv("STRIPE_WEBHOOK_SECRET")
 }
 

@@ -1,4 +1,4 @@
-package subscription
+package billing
 
 import (
 	"waitq/api/internal/entities/shared"

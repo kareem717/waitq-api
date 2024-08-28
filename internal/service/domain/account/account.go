@@ -21,22 +21,22 @@ func NewAccountService(repositories storage.Repository) *AccountService {
 	}
 }
 
-func (s *AccountService) GetById(ctx context.Context, id uuid.UUID) (account.Account, error) {
-	return s.repositories.Account().GetById(ctx, id)
+func (s *AccountService) GetById(ctx context.Context, accountId uuid.UUID) (account.Account, error) {
+	return s.repositories.Account().GetById(ctx, accountId)
 }
 
-func (s *AccountService) GetByUserId(ctx context.Context, userId uuid.UUID, input shared.GetManyRequest) ([]account.Account, error) {
-	return s.repositories.Account().GetByUserId(ctx, userId, input)
+func (s *AccountService) GetByUserId(ctx context.Context, userId uuid.UUID, requestParams shared.GetManyRequest) (account.Account, error) {
+	return s.repositories.Account().GetByUserId(ctx, userId, requestParams)
 }
 
-func (s *AccountService) Create(ctx context.Context, input account.Account) (account.Account, error) {
-	return s.repositories.Account().Create(ctx, input)
+func (s *AccountService) Create(ctx context.Context, accountParams account.Account) (account.Account, error) {
+	return s.repositories.Account().Create(ctx, accountParams)
 }
 
 func (s *AccountService) Delete(ctx context.Context, accountId uuid.UUID) error {
 	return s.repositories.Account().Delete(ctx, accountId)
 }
 
-func (s *AccountService) Update(ctx context.Context, id uuid.UUID, input account.Account) (account.Account, error) {
-	return s.repositories.Account().Update(ctx, id, input)
+func (s *AccountService) Update(ctx context.Context, accountParams account.Account) (account.Account, error) {
+	return s.repositories.Account().Update(ctx, accountParams)
 }

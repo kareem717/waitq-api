@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"waitq/api/internal/entities/account"
-	"waitq/api/internal/entities/subscription"
+	"waitq/api/internal/entities/billing"
 
 	"github.com/google/uuid"
 	"github.com/supabase-community/gotrue-go/types"
@@ -53,8 +53,8 @@ func GetWaitlistKey(ctx context.Context) WaitlistKey {
 	return WaitlistKey{}
 }
 
-func GetWaitlistSubscription(ctx context.Context) *subscription.Subscription {
-	if ctxValue, ok := ctx.Value(WaitlistSubscriptionContextKey).(*subscription.Subscription); ok {
+func GetWaitlistSubscription(ctx context.Context) *billing.Subscription {
+	if ctxValue, ok := ctx.Value(WaitlistSubscriptionContextKey).(*billing.Subscription); ok {
 		return ctxValue
 	}
 

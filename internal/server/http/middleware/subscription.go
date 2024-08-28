@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func WithWaitlistOwnerSubscription(api huma.API) func(ctx huma.Context, next func(huma.Context), logger *zap.Logger, sv *service.Service) {
+func WithWaitlistOwnerBilling(api huma.API) func(ctx huma.Context, next func(huma.Context), logger *zap.Logger, sv *service.Service) {
 	return func(ctx huma.Context, next func(huma.Context), logger *zap.Logger, sv *service.Service) {
 		reqCtx := ctx.Context()
 
@@ -34,12 +34,12 @@ func WithWaitlistOwnerSubscription(api huma.API) func(ctx huma.Context, next fun
 			return
 		}
 
-		sub, err := sv.SubscriptionService.GetAccountSubscription(reqCtx, waitlist.AccountID)
+		sub, err := sv.BillingService.GetAccountSubscription(reqCtx, waitlist.AccountID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				logger.Error("account subscription not found", zap.Error(err))
+				logger.Error("account billing not found", zap.Error(err))
 			}
-			logger.Error("failed to get account subscription", zap.Error(err))
+			logger.Error("failed to get account billing", zap.Error(err))
 			next(huma.WithValue(ctx, shared.WaitlistSubscriptionContextKey, nil))
 			return
 		}

@@ -1,4 +1,4 @@
-package subscription
+package billing
 
 import (
 	"net/http"
@@ -18,50 +18,29 @@ func RegisterHumaRoutes(
 	stripeWebhookSecret string,
 	supabaseClient *supabase.Client,
 ) {
-
 	handler := &httpHandler{
-		subscriptionService: service.SubscriptionService,
+		billingService:      service.BillingService,
 		logger:              logger,
 		stripeWebhookSecret: stripeWebhookSecret,
 	}
 
 	huma.Register(humaApi, huma.Operation{
-		OperationID: "get-stripe-checkout-link",
-		Method:      http.MethodGet,
-		Path:        "/subscriptions/{priceId}",
-		Summary:     "Get a stripe checkout link",
-		Description: "Get a stripe checkout link.",
-		Tags:        []string{"Subscriptions"},
-		Security: []map[string][]string{
-			{"bearerAuth": {}},
-		},
-		Middlewares: huma.Middlewares{
-			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithUser(humaApi)(ctx, next, logger, supabaseClient)
-			},
-			func(ctx huma.Context, next func(huma.Context)) {
-				middleware.WithAccount(humaApi)(ctx, next, logger, service)
-			},
-		},
-	}, handler.getStripeCheckoutLink)
-
-	huma.Register(humaApi, huma.Operation{
 		OperationID:  "handle-stripe-webhook",
 		Method:       http.MethodPost,
-		Path:         "/subscriptions/webhook",
+		Path:         "/billing/webhook",
 		Summary:      "Handle a stripe webhook",
 		Description:  "Handle a stripe webhook.",
-		Tags:         []string{"Subscriptions"},
+		Tags:         []string{"Billing"},
 		MaxBodyBytes: 64 * 1024,
 	}, handler.handleStripeWebhook)
 
 	huma.Register(humaApi, huma.Operation{
 		OperationID: "get-stripe-billing-portal-link",
 		Method:      http.MethodGet,
-		Path:        "/subscriptions/billing-portal/{accountId}",
-		Summary:     "Get a stripe billing portal link",
-		Description: "Get a stripe billing portal link.",
-		Tags:        []string{"Subscriptions"},
+		Path:        "/billing/account/{accountId}/billing-portal",
+		Summary:     "Get a stripe billing portal link for an account",
+		Description: "Get a stripe billing portal link for an account.",
+		Tags:        []string{"Billing"},
 		Security: []map[string][]string{
 			{"bearerAuth": {}},
 		},
@@ -76,12 +55,12 @@ func RegisterHumaRoutes(
 	}, handler.getStripeBillingPortalLink)
 
 	huma.Register(humaApi, huma.Operation{
-		OperationID: "get-stripe-checkout-link",
+		OperationID: "get-account-subscription",
 		Method:      http.MethodGet,
-		Path:        "/subscriptions/{priceId}",
+		Path:        "/billing/account/{accountId}/checkout/{priceId}",
 		Summary:     "Get a stripe checkout link",
 		Description: "Get a stripe checkout link.",
-		Tags:        []string{"Subscriptions"},
+		Tags:        []string{"Billing"},
 		Security: []map[string][]string{
 			{"bearerAuth": {}},
 		},
@@ -98,10 +77,10 @@ func RegisterHumaRoutes(
 	huma.Register(humaApi, huma.Operation{
 		OperationID: "get-account-subscription",
 		Method:      http.MethodGet,
-		Path:        "/subscriptions/account/{accountId}",
-		Summary:     "Get a subscription",
-		Description: "Get a subscription.",
-		Tags:        []string{"Subscriptions"},
+		Path:        "/billing/account/{accountId}/subscription",
+		Summary:     "Get account subscription",
+		Description: "Get account subscription.",
+		Tags:        []string{"Billing"},
 		Security: []map[string][]string{
 			{"bearerAuth": {}},
 		},
@@ -114,5 +93,4 @@ func RegisterHumaRoutes(
 			},
 		},
 	}, handler.getAccountSubscription)
-
 }

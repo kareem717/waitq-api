@@ -2,8 +2,8 @@ package http
 
 import (
 	"waitq/api/internal/server/http/handler/account"
+	"waitq/api/internal/server/http/handler/billing"
 	"waitq/api/internal/server/http/handler/health"
-	"waitq/api/internal/server/http/handler/subscription"
 	"waitq/api/internal/server/http/handler/waitlist"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -41,7 +41,7 @@ func (s *Server) routes() chi.Router {
 		s.supabaseClient,
 	)
 
-	subscription.RegisterHumaRoutes(
+	billing.RegisterHumaRoutes(
 		s.services,
 		s.logger,
 		humaApi,

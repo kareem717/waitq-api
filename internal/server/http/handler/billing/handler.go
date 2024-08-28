@@ -1,4 +1,4 @@
-package subscription
+package billing
 
 import (
 	"bytes"
@@ -8,7 +8,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"waitq/api/internal/entities/subscription"
+	"waitq/api/internal/entities/billing"
 	"waitq/api/internal/server/http/handler/shared"
 	"waitq/api/internal/service"
 
@@ -20,38 +20,37 @@ import (
 )
 
 type httpHandler struct {
-	subscriptionService service.SubscriptionService
+	billingService      service.BillingService
 	logger              *zap.Logger
 	stripeWebhookSecret string
 }
 
-// TODO: handle subscription override
-func newHTTPHandler(subscriptionService service.SubscriptionService, logger *zap.Logger, stripeWebhookSecret string) *httpHandler {
+func newHTTPHandler(billingService service.BillingService, logger *zap.Logger, stripeWebhookSecret string) *httpHandler {
 	return &httpHandler{
-		subscriptionService: subscriptionService,
+		billingService:      billingService,
 		logger:              logger,
 		stripeWebhookSecret: stripeWebhookSecret,
 	}
 }
 
-type PriceIDPathParam struct {
-	PriceID string `path:"priceId"`
+type AccountIDPathParam struct {
+	AccountID uuid.UUID `path:"accountId" minLength:"36" maxLength:"36" format:"uuid"`
 }
 
 type GetStripeCheckoutLinkInput struct {
-	AccountID uuid.UUID `query:"accountId" minLength:"36" maxLength:"36" format:"uuid"`
-	PriceIDPathParam
+	AccountIDPathParam
+	PriceID     string `path:"priceId"`
 	RedirectURL string `query:"redirectUrl"`
 }
 
-type GetStripeCheckoutLinkOutput struct {
+type LinkOutput struct {
 	Body struct {
 		Message string `json:"message"`
 		Link    string `json:"link"`
 	}
 }
 
-func (h *httpHandler) getStripeCheckoutLink(ctx context.Context, input *GetStripeCheckoutLinkInput) (*GetStripeCheckoutLinkOutput, error) {
+func (h *httpHandler) getStripeCheckoutLink(ctx context.Context, input *GetStripeCheckoutLinkInput) (*LinkOutput, error) {
 	ctxAccount := shared.GetAuthenticatedAccount(ctx)
 
 	if input.AccountID != ctxAccount.ID {
@@ -59,13 +58,13 @@ func (h *httpHandler) getStripeCheckoutLink(ctx context.Context, input *GetStrip
 		return nil, huma.Error403Forbidden("Cannot get checkout link for another account")
 	}
 
-	sess, err := h.subscriptionService.CreateStripeCheckoutSession(ctx, input.PriceID, ctxAccount.ID, input.RedirectURL)
+	sess, err := h.billingService.CreateStripeCheckoutSession(ctx, input.PriceID, ctxAccount.ID, input.RedirectURL)
 	if err != nil {
 		h.logger.Error("failed to create stripe checkout session", zap.Error(err))
 		return nil, huma.Error500InternalServerError("Failed to create stripe checkout session")
 	}
 
-	resp := &GetStripeCheckoutLinkOutput{}
+	resp := &LinkOutput{}
 	resp.Body.Message = "Stripe checkout link created successfully"
 	resp.Body.Link = sess.URL
 
@@ -77,14 +76,7 @@ type GetStripeBillingPortalLinkInput struct {
 	RedirectURL string `query:"redirectUrl"`
 }
 
-type GetStripeBillingPortalLinkOutput struct {
-	Body struct {
-		Message string `json:"message"`
-		Link    string `json:"link"`
-	}
-}
-
-func (h *httpHandler) getStripeBillingPortalLink(ctx context.Context, input *GetStripeBillingPortalLinkInput) (*GetStripeBillingPortalLinkOutput, error) {
+func (h *httpHandler) getStripeBillingPortalLink(ctx context.Context, input *GetStripeBillingPortalLinkInput) (*LinkOutput, error) {
 	ctxAccount := shared.GetAuthenticatedAccount(ctx)
 
 	if input.AccountID != ctxAccount.ID {
@@ -92,7 +84,7 @@ func (h *httpHandler) getStripeBillingPortalLink(ctx context.Context, input *Get
 		return nil, huma.Error403Forbidden("Cannot get billing portal link for another account")
 	}
 
-	sub, err := h.subscriptionService.GetAccountSubscriptionRelationship(ctx, ctxAccount.ID)
+	sub, err := h.billingService.GetAccountSubscriptionRelationship(ctx, ctxAccount.ID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			h.logger.Error("account does not have a subscription", zap.Error(err))
@@ -102,28 +94,24 @@ func (h *httpHandler) getStripeBillingPortalLink(ctx context.Context, input *Get
 		return nil, huma.Error500InternalServerError("Failed to get account subscription relationship")
 	}
 
-	sess, err := h.subscriptionService.CreateStripeBillingPortalSession(ctx, sub.StripeCustomerID, input.RedirectURL)
+	sess, err := h.billingService.CreateStripeBillingPortalSession(ctx, sub.StripeCustomerID, input.RedirectURL)
 	if err != nil {
 		h.logger.Error("failed to create stripe billing portal session", zap.Error(err))
 		return nil, huma.Error500InternalServerError("Failed to create stripe billing portal session")
 	}
 
-	resp := &GetStripeBillingPortalLinkOutput{}
+	resp := &LinkOutput{}
 	resp.Body.Message = "Stripe billing portal link created successfully"
 	resp.Body.Link = sess.URL
 
 	return resp, nil
 }
 
-type AccountIDPathParam struct {
-	AccountID uuid.UUID `path:"accountId" minLength:"36" maxLength:"36" format:"uuid"`
-}
-
 type GetAccountSubscriptionOutput struct {
 	Body struct {
-		Message      string                            `json:"message"`
-		Subscription *subscription.Subscription        `json:"subscription"`
-		Relations    *subscription.AccountSubscription `json:"subscriptionRelationship"`
+		Message      string                       `json:"message"`
+		Subscription *billing.Subscription        `json:"subscription"`
+		Relation     *billing.AccountSubscription `json:"subscriptionRelationship"`
 	}
 }
 
@@ -135,33 +123,27 @@ func (h *httpHandler) getAccountSubscription(ctx context.Context, input *Account
 
 	resp := &GetAccountSubscriptionOutput{}
 
-	sub, err := h.subscriptionService.GetAccountSubscription(ctx, input.AccountID)
+	subRel, err := h.billingService.GetAccountSubscriptionRelationship(ctx, input.AccountID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			resp.Body.Message = "Account has no subscription"
 			resp.Body.Subscription = nil
-			resp.Body.Relations = nil
+			resp.Body.Relation = nil
 			return resp, nil
 		}
 		h.logger.Error("failed to get account subscription", zap.Error(err))
 		return nil, huma.Error500InternalServerError("Failed to get account subscription")
 	}
 
-	subRel, err := h.subscriptionService.GetAccountSubscriptionRelationship(ctx, input.AccountID)
+	sub, err := h.billingService.GetAccountSubscription(ctx, input.AccountID)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			resp.Body.Message = "Account has no subscription"
-			resp.Body.Subscription = nil
-			resp.Body.Relations = nil
-			return resp, nil
-		}
 		h.logger.Error("failed to get account subscription", zap.Error(err))
 		return nil, huma.Error500InternalServerError("Failed to get account subscription")
 	}
 
 	resp.Body.Message = "Subscription retrieved successfully"
 	resp.Body.Subscription = &sub
-	resp.Body.Relations = &subRel
+	resp.Body.Relation = &subRel
 
 	return resp, nil
 }
@@ -177,7 +159,6 @@ type HandleStripeWebhookOutput struct {
 }
 
 func (h *httpHandler) handleStripeWebhook(ctx context.Context, input *HandleStripeWebhookInput) (*HandleStripeWebhookOutput, error) {
-	// Limited to 64kb in routes.go to prevent abuse
 	reader := bytes.NewReader(input.Body)
 
 	payload, err := io.ReadAll(reader)
@@ -202,7 +183,7 @@ func (h *httpHandler) handleStripeWebhook(ctx context.Context, input *HandleStri
 			return nil, huma.Error500InternalServerError("Failed to parse webhook json")
 		}
 
-		_, err = h.subscriptionService.UpdateAccountSubscription(ctx, eventBody)
+		_, err = h.billingService.UpdateAccountSubscription(ctx, eventBody)
 		if err != nil {
 			h.logger.Error("failed to update account subscription", zap.Error(err))
 			return nil, huma.Error500InternalServerError("Failed to update account subscription")
@@ -217,7 +198,7 @@ func (h *httpHandler) handleStripeWebhook(ctx context.Context, input *HandleStri
 			return nil, huma.Error500InternalServerError("Failed to parse webhook json")
 		}
 
-		err = h.subscriptionService.DeleteAccountSubscription(ctx, eventBody)
+		err = h.billingService.DeleteAccountSubscriptionByCustomerID(ctx, eventBody.Customer.ID)
 		if err != nil {
 			h.logger.Error("failed to delete account subscription relationship", zap.Error(err))
 			return nil, huma.Error500InternalServerError("Failed to delete account subscription relationship")
@@ -232,7 +213,7 @@ func (h *httpHandler) handleStripeWebhook(ctx context.Context, input *HandleStri
 			return nil, huma.Error500InternalServerError("Failed to parse webhook json")
 		}
 
-		sub, redirectURL, err := h.subscriptionService.HandleStripeCheckoutSuccess(ctx, eventBody.ID)
+		sub, redirectURL, err := h.billingService.HandleStripeCheckoutSuccess(ctx, eventBody.ID)
 		if err != nil {
 			h.logger.Error("failed to handle stripe checkout success", zap.Error(err))
 			return nil, huma.Error500InternalServerError("Failed to handle stripe checkout success")

@@ -67,21 +67,6 @@ func WithAccount(api huma.API) func(ctx huma.Context, next func(huma.Context), l
 			return
 		}
 
-		// There should only be one non-deleted account per user
-		if len(queryResp) == 0 {
-			logger.Error("User has no accounts", zap.Any("user", user))
-			huma.WriteErr(api, ctx, http.StatusForbidden,
-				"User does not have an account",
-			)
-			return
-		} else if len(queryResp) > 1 {
-			logger.Error("User has multiple accounts", zap.Any("user", user), zap.Any("accounts", queryResp))
-			huma.WriteErr(api, ctx, http.StatusInternalServerError,
-				"Something went wrong",
-			)
-			return
-		}
-
-		next(huma.WithValue(ctx, shared.AccountContextKey, queryResp[0]))
+		next(huma.WithValue(ctx, shared.AccountContextKey, queryResp))
 	}
 }

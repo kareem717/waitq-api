@@ -3,7 +3,7 @@ package storage
 import (
 	"context"
 	"waitq/api/internal/entities/account"
-	"waitq/api/internal/entities/subscription"
+	"waitq/api/internal/entities/billing"
 	"waitq/api/internal/entities/waitlist"
 	"waitq/api/internal/storage/postgres/shared"
 
@@ -11,11 +11,11 @@ import (
 )
 
 type AccountRepository interface {
-	Create(ctx context.Context, account account.Account) (account.Account, error)
-	Delete(ctx context.Context, id uuid.UUID) error
-	Update(ctx context.Context, id uuid.UUID, input account.Account) (account.Account, error)
-	GetByUserId(ctx context.Context, userId uuid.UUID, input shared.GetManyRequest) ([]account.Account, error)
-	GetById(ctx context.Context, id uuid.UUID) (account.Account, error)
+	Create(ctx context.Context, accountParams account.Account) (account.Account, error)
+	Delete(ctx context.Context, accountId uuid.UUID) error
+	Update(ctx context.Context, accountParams account.Account) (account.Account, error)
+	GetByUserId(ctx context.Context, userId uuid.UUID, queryParams shared.GetManyRequest) (account.Account, error)
+	GetById(ctx context.Context, accountId uuid.UUID) (account.Account, error)
 }
 
 type WaitlistRepository interface {
@@ -38,23 +38,23 @@ type WaitlistRepository interface {
 	GetPublicMany(ctx context.Context, input shared.CursorPaginationRequest) ([]waitlist.PublicWaitlist, error)
 }
 
-type SubscriptionRepository interface {
-	CreateAccountSubscription(ctx context.Context, sub subscription.AccountSubscription) (subscription.AccountSubscription, error)
-	GetRelationshipByAccountId(ctx context.Context, accountId uuid.UUID) (subscription.AccountSubscription, error)
-	GetByAccountId(ctx context.Context, accountId uuid.UUID) (subscription.Subscription, error)
-	GetByStripeProductId(ctx context.Context, stripeProductId string) (subscription.Subscription, error)
-	GetRelationshipByCustomerId(ctx context.Context, customerId string) (subscription.AccountSubscription, error)
+type BillingRepository interface {
+	CreateAccountSubscription(ctx context.Context, sub billing.AccountSubscription) (billing.AccountSubscription, error)
+	GetRelationshipByAccountId(ctx context.Context, accountId uuid.UUID) (billing.AccountSubscription, error)
+	GetByAccountId(ctx context.Context, accountId uuid.UUID) (billing.Subscription, error)
+	GetByStripeProductId(ctx context.Context, stripeProductId string) (billing.Subscription, error)
+	GetRelationshipByCustomerId(ctx context.Context, customerId string) (billing.AccountSubscription, error)
 	DeleteRelationship(ctx context.Context, accountId uuid.UUID) error
-	UpdateAccountSubscription(ctx context.Context, accountId uuid.UUID, newSubscriptionId uuid.UUID, newPriceId string) (subscription.AccountSubscription, error)
+	UpdateAccountSubscription(ctx context.Context, accountId uuid.UUID, newSubscriptionId uuid.UUID, newPriceId string) (billing.AccountSubscription, error)
 }
 
 type RepositoryProvider interface {
 	Account() AccountRepository
 	Waitlist() WaitlistRepository
-	Subscription() SubscriptionRepository
+	Billing() BillingRepository
 }
 
-type UnitOfWork interface {
+type Transaction interface {
 	RepositoryProvider
 	Commit() error
 	Rollback() error
@@ -63,6 +63,6 @@ type UnitOfWork interface {
 type Repository interface {
 	RepositoryProvider
 	HealthCheck(ctx context.Context) error
-	NewUnitOfWork() (UnitOfWork, error)
-	RunInTx(ctx context.Context, fn func(ctx context.Context, uow UnitOfWork) error) error
+	NewTransaction() (Transaction, error)
+	RunInTx(ctx context.Context, fn func(ctx context.Context, tx Transaction) error) error
 }

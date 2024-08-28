@@ -27,8 +27,8 @@ func newHTTPHandler(accountService service.AccountService, logger *zap.Logger) *
 	}
 }
 
-type GetAccountByIDInput struct {
-	ID string `path:"id"`
+type PathUUIDParam struct {
+	ID uuid.UUID `path:"id" minLength:"36" maxLength:"36" format:"uuid"`
 }
 
 type GetAccountByIDOutput struct {
@@ -38,13 +38,13 @@ type GetAccountByIDOutput struct {
 	}
 }
 
-func (h *httpHandler) getByID(ctx context.Context, input *GetAccountByIDInput) (*GetAccountByIDOutput, error) {
-	accountID, err := uuid.Parse(input.ID) // fetching and validation input
-	if err != nil {
-		return nil, huma.Error400BadRequest("Invalid account ID")
+func (h *httpHandler) getByID(ctx context.Context, input *PathUUIDParam) (*GetAccountByIDOutput, error) {
+	if user := helper.GetAuthenticatedUser(ctx); user.ID != input.ID {
+		h.logger.Error("unauthorized access", zap.Any("user", user), zap.Any("account", input.ID))
+		return nil, huma.Error403Forbidden("Cannot access account")
 	}
 
-	account, err := h.accountService.GetById(ctx, accountID)
+	account, err := h.accountService.GetById(ctx, input.ID)
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
@@ -53,11 +53,6 @@ func (h *httpHandler) getByID(ctx context.Context, input *GetAccountByIDInput) (
 			h.logger.Error("failed to fetch account", zap.Error(err))
 			return nil, huma.Error500InternalServerError("An error occurred while fetching the account")
 		}
-	}
-
-	if user := helper.GetAuthenticatedUser(ctx); user.ID != account.UserID {
-		h.logger.Error("unauthorized access", zap.Any("user", user), zap.Any("account", account))
-		return nil, huma.Error403Forbidden("Cannot access account")
 	}
 
 	resp := &GetAccountByIDOutput{}
@@ -74,9 +69,8 @@ type GetAccountByUserIDInput struct {
 
 type GetAccountByUserIDOutput struct {
 	Body struct {
-		Count    int                `json:"count"`
-		Message  string             `json:"message"`
-		Accounts *[]account.Account `json:"accounts"`
+		Message  string           `json:"message"`
+		Accounts *account.Account `json:"accounts"`
 	}
 }
 
@@ -95,6 +89,7 @@ func (h *httpHandler) getByUserID(ctx context.Context, input *GetAccountByUserID
 	accounts, err := h.accountService.GetByUserId(ctx, userID, shared.GetManyRequest{
 		IncludeDeleted: input.IncludeDeleted,
 	})
+
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
@@ -108,7 +103,6 @@ func (h *httpHandler) getByUserID(ctx context.Context, input *GetAccountByUserID
 	resp := &GetAccountByUserIDOutput{}
 	resp.Body.Message = "Accounts fetched successfully"
 	resp.Body.Accounts = &accounts
-	resp.Body.Count = len(*resp.Body.Accounts)
 
 	return resp, nil
 }
@@ -155,7 +149,7 @@ func (h *httpHandler) create(ctx context.Context, input *CreateAccountInput) (*C
 }
 
 type UpdateAccountInput struct {
-	ID   uuid.UUID `path:"id" minLength:"36" maxLength:"36" format:"uuid"`
+	PathUUIDParam
 	Body struct {
 		UpdateAccountFields struct {
 			Name  string `json:"name" minLength:"3" maxLength:"100"`
@@ -192,7 +186,8 @@ func (h *httpHandler) update(ctx context.Context, input *UpdateAccountInput) (*U
 		return nil, huma.Error403Forbidden("Cannot update account for another user")
 	}
 
-	account, err := h.accountService.Update(ctx, input.ID, account.Account{
+	account, err := h.accountService.Update(ctx, account.Account{
+		ID:    input.ID,
 		Name:  input.Body.UpdateAccountFields.Name,
 		Email: input.Body.UpdateAccountFields.Email,
 	})
@@ -210,7 +205,7 @@ func (h *httpHandler) update(ctx context.Context, input *UpdateAccountInput) (*U
 }
 
 type DeleteAccountInput struct {
-	ID uuid.UUID `path:"id" minLength:"36" maxLength:"36" format:"uuid"`
+	PathUUIDParam
 }
 
 type DeleteAccountOutput struct {

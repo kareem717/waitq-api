@@ -23,15 +23,15 @@ import (
 
 type httpHandler struct {
 	waitlistService     service.WaitlistService
-	subscriptionService service.SubscriptionService
+	billingService      service.BillingService
 	logger              *zap.Logger
 }
 
-func newHTTPHandler(waitlistService service.WaitlistService, subscriptionService service.SubscriptionService, logger *zap.Logger) *httpHandler {
+func newHTTPHandler(waitlistService service.WaitlistService, billingService service.BillingService, logger *zap.Logger) *httpHandler {
 	return &httpHandler{
-		waitlistService:     waitlistService,
-		subscriptionService: subscriptionService,
-		logger:              logger,
+		waitlistService: waitlistService,
+		billingService:  billingService,
+		logger:          logger,
 	}
 }
 
@@ -116,7 +116,7 @@ func (h *httpHandler) create(ctx context.Context, input *CreateWaitlistInput) (*
 		return nil, huma.Error500InternalServerError("An error occurred while fetching the active waitlist count")
 	}
 
-	sub, err := h.subscriptionService.GetAccountSubscription(ctx, input.Body.CreateWaitlistFields.AccountID)
+	sub, err := h.billingService.GetAccountSubscription(ctx, input.Body.CreateWaitlistFields.AccountID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) && activeWaitlistCount >= 1 {
 			h.logger.Error("attempted to create additonal waitlist without subscription", zap.Int("activeWaitlistCount", activeWaitlistCount), zap.Any("accountId", input.Body.CreateWaitlistFields.AccountID))
@@ -375,7 +375,7 @@ func (h *httpHandler) addEmail(ctx context.Context, input *AddEmailsInput) (*Add
 		return nil, huma.Error500InternalServerError("An error occurred while fetching the emails")
 	}
 
-	sub, err := h.subscriptionService.GetSubscriptionByWaitlistId(ctx, waitlistResp.ID)
+	sub, err := h.billingService.GetSubscriptionByWaitlistId(ctx, waitlistResp.ID)
 	if err != nil {
 		h.logger.Error("failed to fetch subscription", zap.Error(err))
 		return nil, huma.Error500InternalServerError("An error occurred while fetching the subscription")

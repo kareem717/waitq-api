@@ -8,7 +8,7 @@ import (
 
 	"waitq/api/internal/storage"
 	"waitq/api/internal/storage/postgres/account"
-	"waitq/api/internal/storage/postgres/subscription"
+	"waitq/api/internal/storage/postgres/billing"
 	"waitq/api/internal/storage/postgres/waitlist"
 
 	"github.com/alexlast/bunzap"
@@ -83,39 +83,39 @@ func configDBPool(config Config) (*pgxpool.Config, error) {
 	return poolConfig, nil
 }
 
-type unitOfWork struct {
-	accountRepo      *account.AccountRepository
-	waitlistRepo     *waitlist.WaitlistRepository
-	subscriptionRepo *subscription.SubscriptionRepository
-	tx               *bun.Tx
+type transaction struct {
+	accountRepo  *account.AccountRepository
+	waitlistRepo *waitlist.WaitlistRepository
+	billingRepo  *billing.BillingRepository
+	tx           *bun.Tx
 }
 
-func (u *unitOfWork) Account() storage.AccountRepository {
-	return u.accountRepo
+func (t *transaction) Account() storage.AccountRepository {
+	return t.accountRepo
 }
 
-func (u *unitOfWork) Waitlist() storage.WaitlistRepository {
-	return u.waitlistRepo
+func (t *transaction) Waitlist() storage.WaitlistRepository {
+	return t.waitlistRepo
 }
 
-func (u *unitOfWork) Subscription() storage.SubscriptionRepository {
-	return u.subscriptionRepo
+func (t *transaction) Billing() storage.BillingRepository {
+	return t.billingRepo
 }
 
-func (u *unitOfWork) Commit() error {
-	return u.tx.Commit()
+func (t *transaction) Commit() error {
+	return t.tx.Commit()
 }
 
-func (u *unitOfWork) Rollback() error {
-	return u.tx.Rollback()
+func (t *transaction) Rollback() error {
+	return t.tx.Rollback()
 }
 
 type Repository struct {
-	accountRepo      *account.AccountRepository
-	waitlistRepo     *waitlist.WaitlistRepository
-	subscriptionRepo *subscription.SubscriptionRepository
-	db               *bun.DB
-	ctx              context.Context
+	accountRepo  *account.AccountRepository
+	waitlistRepo *waitlist.WaitlistRepository
+	billingRepo  *billing.BillingRepository
+	db           *bun.DB
+	ctx          context.Context
 }
 
 func NewRepository(config Config, ctx context.Context, logger *zap.Logger) *Repository {
@@ -151,11 +151,11 @@ func NewRepository(config Config, ctx context.Context, logger *zap.Logger) *Repo
 
 	log.Println("Successfully connected to the database.")
 	return &Repository{
-		accountRepo:      account.NewAccountRepository(db, ctx),
-		waitlistRepo:     waitlist.NewWaitlistRepository(db, ctx),
-		subscriptionRepo: subscription.NewSubscriptionRepository(db, ctx),
-		db:               db,
-		ctx:              ctx,
+		accountRepo:  account.NewAccountRepository(db, ctx),
+		waitlistRepo: waitlist.NewWaitlistRepository(db, ctx),
+		billingRepo:  billing.NewBillingRepository(db, ctx),
+		db:           db,
+		ctx:          ctx,
 	}
 }
 
@@ -167,39 +167,39 @@ func (r *Repository) Waitlist() storage.WaitlistRepository {
 	return r.waitlistRepo
 }
 
-func (r *Repository) Subscription() storage.SubscriptionRepository {
-	return r.subscriptionRepo
+func (r *Repository) Billing() storage.BillingRepository {
+	return r.billingRepo
 }
 
 func (r *Repository) HealthCheck(ctx context.Context) error {
 	return r.db.PingContext(ctx)
 }
 
-func (r *Repository) NewUnitOfWork() (storage.UnitOfWork, error) {
+func (r *Repository) NewTransaction() (storage.Transaction, error) {
 	tx, err := r.db.BeginTx(r.ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	return &unitOfWork{
-		accountRepo:      account.NewAccountRepository(tx, r.ctx),
-		waitlistRepo:     waitlist.NewWaitlistRepository(tx, r.ctx),
-		subscriptionRepo: subscription.NewSubscriptionRepository(tx, r.ctx),
-		tx:               &tx,
+	return &transaction{
+		accountRepo:  account.NewAccountRepository(tx, r.ctx),
+		waitlistRepo: waitlist.NewWaitlistRepository(tx, r.ctx),
+		billingRepo:  billing.NewBillingRepository(tx, r.ctx),
+		tx:           &tx,
 	}, nil
 }
 
-func (r *Repository) RunInTx(ctx context.Context, fn func(ctx context.Context, uow storage.UnitOfWork) error) error {
-	uow, err := r.NewUnitOfWork()
+func (r *Repository) RunInTx(ctx context.Context, fn func(ctx context.Context, tx storage.Transaction) error) error {
+	tx, err := r.NewTransaction()
 	if err != nil {
 		return err
 	}
 
-	err = fn(ctx, uow)
+	err = fn(ctx, tx)
 	if err != nil {
-		uow.Rollback()
+		tx.Rollback()
 		return err
 	}
 
-	return uow.Commit()
+	return tx.Commit()
 }
