@@ -2,6 +2,8 @@ package waitlist
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"log"
 	"time"
 
@@ -112,7 +114,16 @@ func (s *WaitlistService) GetActiveWaitlistCountByAccountId(ctx context.Context,
 }
 
 func (s *WaitlistService) GetAnalytics(ctx context.Context, waitlistId uuid.UUID) (waitlist.WaitlistAnalytics, error) {
-	return s.repositories.Waitlist().GetAnalytics(ctx, waitlistId)
+	analytics, err := s.repositories.Waitlist().GetAnalytics(ctx, waitlistId)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return waitlist.WaitlistAnalytics{}, nil
+		}
+		
+		return waitlist.WaitlistAnalytics{}, err
+	}
+
+	return analytics, nil
 }
 
 type Keys struct {
